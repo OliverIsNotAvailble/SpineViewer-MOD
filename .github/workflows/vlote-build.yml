@@ -14,7 +14,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Restore
-        run: dotnet restore SpineViewer/SpineViewer.csproj -p:Platform=x64
+        run: dotnet restore SpineViewer/SpineViewer.csproj -r win-x64 -p:Platform=x64
       - name: Publish Windows test build
         run: dotnet publish SpineViewer/SpineViewer.csproj -c Release -r win-x64 --self-contained false -p:Platform=x64 -o publish/VLote --no-restore
       - name: Upload VLote Windows test build
