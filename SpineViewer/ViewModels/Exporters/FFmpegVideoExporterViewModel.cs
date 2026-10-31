@@ -98,6 +98,114 @@ namespace SpineViewer.ViewModels.Exporters
             foreach (var sp in spines) sp.Dispose();
         }
 
+        /// <summary>
+        /// VLote: export current model with the same FFmpeg engine and canvas
+        /// configuration as the existing Export Video action. This method
+        /// blocks until every file is actually encoded and checked.
+        /// It throws on failure; callers MUST NOT move source folders then.
+        /// Called from a Task.Run worker, not the WPF dispatcher.
+        /// </summary>
+        public void ExportVLote(SpineObjectModel model, string outputFolder,
+                               VLoteExportOptions settings,
+                               Action<string>? report, CancellationToken ct)
+        {
+            if (settings.Width < 2 || settings.Height < 2 ||
+                settings.Fps < 1 || settings.Fps > 120)
+                throw new ArgumentOutOfRangeException(nameof(settings));
+            if (settings.Transparent && settings.Format == FFmpegVideoExporter.VideoFormat.Mp4)
+                throw new ArgumentException("MP4/H.264 does not preserve alpha. Choose WebP/APNG/MOV or turn off transparency.");
+            Directory.CreateDirectory(outputFolder);
+
+            // SFML render textures must not be used from the preview and the
+            // exporter at the same time; same workaround as ExportTask().
+            _vmMain.SFMLRendererViewModel.StopRender();
+            try
+            {
+                using var original = model.GetSpineObject();
+                if (original.Data.Animations.Length == 0)
+                    throw new InvalidOperationException("This model has no animations. Classify as NULL or check the files.");
+
+                using var exporter = (FFmpegVideoExporter)GetExporter();
+                exporter.Resolution = new(settings.Width, settings.Height);
+                exporter.Fps = settings.Fps;
+                exporter.Speed = settings.Speed;
+                exporter.KeepLast = settings.KeepLast;
+                exporter.Format = settings.Format;
+                exporter.Crf = settings.Crf;
+                exporter.Quality = settings.Quality;
+                exporter.Lossless = settings.Lossless;
+                exporter.Loop = settings.Loop;
+                exporter.BackgroundColor = settings.Transparent
+                    ? new SFML.Graphics.Color(0, 0, 0, 0)
+                    : new SFML.Graphics.Color(0, 0, 0, 255);
+                exporter.BackgroundImagePath = settings.Transparent
+                    ? null
+                    : _vmMain.SFMLRendererViewModel.BackgroundImagePath;
+
+                if (!settings.AutoFit)
+                {
+                    using var view = _renderer.GetView();
+                    var bounds = view.GetBounds().GetCanvasBounds(_renderer.Resolution, 0);
+                    exporter.Size = bounds.Size;
+                    exporter.Center = bounds.Position + bounds.Size / 2;
+                    exporter.Rotation = view.Rotation;
+                }
+
+                var list = settings.AllAnimations
+                    ? original.Data.Animations.ToArray()
+                    : original.Data.Animations.Take(1).ToArray();
+
+                foreach (var animation in list)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    report?.Invoke($"Exportando {model.Name} / {animation.Name}...");
+                    using var current = original.Copy();
+                    current.AnimationState.ClearTracks();
+                    current.Skeleton.SetToSetupPose();
+                    var track = current.AnimationState.SetAnimation(0, animation, true);
+                    if (settings.DisableTrackLoop) track.Loop = false;
+                    current.Update(0);
+
+                    exporter.Duration = settings.Duration < 0
+                        ? animation.Duration
+                        : settings.Duration;
+                    if (exporter.Duration <= 0)
+                        throw new InvalidOperationException($"Animation has zero duration: {animation.Name}");
+                    if (settings.AutoFit)
+                        SetAutoResolutionAnimated(exporter, current);
+
+                    var name = string.Join("_", new[] { model.Name, animation.Name }
+                        .Select(x => string.Concat(x.Select(c =>
+                            Path.GetInvalidFileNameChars().Contains(c) ? '_' : c))));
+                    var extension = "." + settings.Format.ToString().ToLowerInvariant();
+                    var destination = Path.Combine(outputFolder, name + extension);
+                    // The same animation can occur twice in different exports.
+                    // Never silently overwrite a previous successful export.
+                    for (var index = 1; File.Exists(destination); index++)
+                        destination = Path.Combine(outputFolder, $"{name} ({index}){extension}");
+
+                    exporter.ProgressReporter = (total, done, message) =>
+                        report?.Invoke($"{model.Name} / {animation.Name}  {done:0}/{total:0}");
+                    try
+                    {
+                        exporter.Export(destination, ct, current);
+                        if (!File.Exists(destination) || new FileInfo(destination).Length == 0)
+                            throw new IOException($"FFmpeg did not produce a valid non-empty output: {destination}");
+                    }
+                    catch
+                    {
+                        if (File.Exists(destination))
+                            File.Delete(destination);
+                        throw;
+                    }
+                }
+            }
+            finally
+            {
+                _vmMain.SFMLRendererViewModel.StartRender();
+            }
+        }
+
         protected override VideoExporter GetExporter()
         {
             return new FFmpegVideoExporter(_renderer.Resolution.X + _margin * 2, _renderer.Resolution.Y + _margin * 2)

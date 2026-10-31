@@ -7,6 +7,7 @@
         xmlns:hc="https://handyorg.github.io/handycontrol"
         xmlns:vm="clr-namespace:SpineViewer.ViewModels.MainWindow"
         xmlns:SFMLRenderer="clr-namespace:SFMLRenderer;assembly=SFMLRenderer"
+        xmlns:local="clr-namespace:SpineViewer.Views"
         mc:Ignorable="d"
         x:Name="_mainWindow"
         d:DataContext="{d:DesignInstance Type={x:Type vm:MainWindowViewModel}}"
@@ -1000,6 +1001,11 @@
                                 </Grid>
                             </TabItem>
 
+                            <!-- VLote batch queue: the original central preview stays active. -->
+                            <TabItem x:Name="_vloteTab" Header="VLote" ToolTip="VLote 0.1 - processar Spine em lote">
+                                <local:VLotePanel x:Name="_vlotePanel"/>
+                            </TabItem>
+
                         </TabControl>
                     </Border>
 
@@ -1072,7 +1078,20 @@
                                                 </TextBlock>
                                             </StatusBarItem>
                                         </StatusBar>
-                                        <RichTextBox x:Name="_loggerRichTextBox" Grid.Row="2" Style="{StaticResource MyLogRichTextBoxStyle}"/>
+                                        <Grid>
+                                            <RichTextBox x:Name="_loggerRichTextBox" Grid.Row="2" Style="{StaticResource MyLogRichTextBoxStyle}"/>
+                                            <Border x:Name="_vloteFooter" Visibility="Collapsed"
+                                                    Background="#252C39" Padding="13,8">
+                                                <StackPanel>
+                                                    <TextBlock Text="VLote 0.1 — Processamento em lote"
+                                                               FontWeight="Bold" FontSize="15" Foreground="White"/>
+                                                    <TextBlock x:Name="_vloteProgressText"
+                                                               Text="Selecione uma pasta raiz na aba VLote."
+                                                               TextWrapping="Wrap" FontSize="13"
+                                                               Foreground="#C2D7EE" Margin="0,5,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
                                     </DockPanel>
                                 </Border>
                             </Border>

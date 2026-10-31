@@ -109,6 +109,18 @@ public partial class MainWindow : Window
 
         DataContext = _vm = new(_renderPanel, _wallpaperRenderWindow);
 
+        _vlotePanel.SetContext(_vm);
+        _vlotePanel.ProgressChanged += text => _vloteProgressText.Text = text;
+        _mainTabControl.SelectionChanged += (_, e) =>
+        {
+            if (!ReferenceEquals(e.OriginalSource, _mainTabControl)) return;
+            var batchVisible = ReferenceEquals(_mainTabControl.SelectedItem, _vloteTab);
+            _vloteFooter.Visibility = batchVisible ? Visibility.Visible : Visibility.Collapsed;
+            _loggerRichTextBox.Visibility = batchVisible ? Visibility.Collapsed : Visibility.Visible;
+            if (batchVisible)
+                _vloteProgressText.Text = _vlotePanel.ProgressText;
+        };
+
         // XXX: hc 的 NotifyIcon 的 Text 似乎没法双向绑定
         _notifyIcon.Text = _vm.Title;
 
