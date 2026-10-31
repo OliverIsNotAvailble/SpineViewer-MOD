@@ -1,0 +1,140 @@
+name: Build & Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  build-release:
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+    env:
+      PROJECT_NAME: SpineViewer
+      PROJ_CLI_NAME: SpineViewerCLI
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-tags: true
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Extract version from csproj
+        id: extract_version
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content "$env:PROJECT_NAME\$env:PROJECT_NAME.csproj"
+          $VERSION_NUM = $proj.Project.PropertyGroup.Version
+          $VERSION_TAG = "v$VERSION_NUM".Trim()
+          echo "Version tag found: $VERSION_TAG"
+          echo "version=$VERSION_TAG" >> $env:GITHUB_OUTPUT
+          echo "VERSION=$VERSION_TAG" >> $env:GITHUB_ENV
+
+      - name: Tag merge commit
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag $env:VERSION
+          git push --tags
+
+      - name: Publish FrameworkDependent version
+        shell: pwsh
+        run: |
+          dotnet publish "$env:PROJECT_NAME\$env:PROJECT_NAME.csproj" -c Release -r win-x64 --sc false -o "publish\$env:PROJECT_NAME-$env:VERSION"
+          dotnet publish "$env:PROJ_CLI_NAME\$env:PROJ_CLI_NAME.csproj" -c Release -r win-x64 --sc false -o "publish\$env:PROJECT_NAME-$env:VERSION"
+
+      - name: Publish SelfContained version
+        shell: pwsh
+        run: |
+          dotnet publish "$env:PROJECT_NAME\$env:PROJECT_NAME.csproj" -c Release -r win-x64 --sc true -o "publish\$env:PROJECT_NAME-$env:VERSION-SelfContained"
+          dotnet publish "$env:PROJ_CLI_NAME\$env:PROJ_CLI_NAME.csproj" -c Release -r win-x64 --sc true -o "publish\$env:PROJECT_NAME-$env:VERSION-SelfContained"
+
+      - name: Compress Windows builds
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Compress-Archive -Path "publish\$env:PROJECT_NAME-$env:VERSION\*" -DestinationPath "release\$env:PROJECT_NAME-$env:VERSION.zip" -Force
+          Compress-Archive -Path "publish\$env:PROJECT_NAME-$env:VERSION-SelfContained\*" -DestinationPath "release\$env:PROJECT_NAME-$env:VERSION-SelfContained.zip" -Force
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Windows FrameworkDependent zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/${{ env.PROJECT_NAME }}-${{ env.VERSION }}.zip
+          asset_name: ${{ env.PROJECT_NAME }}-${{ env.VERSION }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload Windows SelfContained zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-SelfContained.zip
+          asset_name: ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-SelfContained.zip
+          asset_content_type: application/zip
+
+
+  build-release-linux:
+    needs: build-release
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    env:
+      PROJ_CLI_NAME: SpineViewerCLI
+      VERSION: ${{ needs.build-release.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-tags: true
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish Linux SelfContained version
+        run: |
+          dotnet publish "$PROJ_CLI_NAME/$PROJ_CLI_NAME.csproj" -c Release -r linux-x64 --sc true -o "publish/${PROJ_CLI_NAME}-${VERSION}-Linux-SelfContained"
+
+      - name: Compress Linux build
+        run: |
+          mkdir -p release
+          cd publish
+          zip -r "../release/${PROJ_CLI_NAME}-${VERSION}-Linux-SelfContained.zip" "${PROJ_CLI_NAME}-${VERSION}-Linux-SelfContained"
+
+      - name: Upload Linux zip to GitHub Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.build-release.outputs.upload_url }}
+          asset_path: release/${{ env.PROJ_CLI_NAME }}-${{ env.VERSION }}-Linux-SelfContained.zip
+          asset_name: ${{ env.PROJ_CLI_NAME }}-${{ env.VERSION }}-Linux-SelfContained.zip
+          asset_content_type: application/zip

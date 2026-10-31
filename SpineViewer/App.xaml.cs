@@ -1,0 +1,411 @@
+﻿using Microsoft.Win32;
+using NLog;
+using SpineViewer.Resources;
+using SpineViewer.Services;
+using SpineViewer.ViewModels.MainWindow;
+using SpineViewer.Views;
+using System.Collections.Frozen;
+using System.Configuration;
+using System.Data;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.IO.Pipes;
+using System.Reflection;
+using System.Windows;
+using System.Windows.Interop;
+using SpineViewer.Extensions;
+using SpineViewer.Natives;
+
+namespace SpineViewer
+{
+    /// <summary>
+    /// Interaction logic for App.xaml
+    /// </summary>
+    public partial class App : Application
+    {
+#if DEBUG
+        public const bool IsDebug = true;
+        public const string AppName = "SpineViewer_D";
+        public const string ProgId = "SpineViewer_D.skel";
+#else
+        public const bool IsDebug = false;
+        public const string AppName = "SpineViewer";
+        public const string ProgId = "SpineViewer.skel";
+#endif
+
+        public const string AutoRunFlag = "--autorun";
+        private const string MutexName = $"__{AppName}_Instance__";
+        private const string PipeName = $"_{AppName}_Pipe__";
+
+        public static readonly string ProcessPath = Environment.ProcessPath;
+        public static readonly string ProcessDirectory = Path.GetDirectoryName(Environment.ProcessPath);
+        public static readonly string ProcessName = Process.GetCurrentProcess().ProcessName;
+        public static readonly string Version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        private static readonly string AutoRunCommand = $"\"{ProcessPath}\" {AutoRunFlag}";
+
+        private static readonly string SkelFileDescription = $"SpineViewer File";
+        private static readonly string SkelIconFilePath = Path.Combine(ProcessDirectory, "Resources\\Images\\skel.ico");
+        private static readonly string ShellOpenCommand = $"\"{ProcessPath}\" \"%1\"";
+
+        private static readonly Logger _logger;
+        private static readonly Mutex _instanceMutex;
+
+        static App()
+        {
+            InitializeLogConfiguration();
+            _logger = LogManager.GetCurrentClassLogger();
+            _logger.Info("Application Started, v{0}", Version);
+
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                _logger.Debug(e.ExceptionObject.ToString());
+                _logger.Fatal("Unhandled exception: {0}", e.ExceptionObject);
+                MessagePopupService.Error(e.ExceptionObject.ToString());
+            };
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                _logger.Debug(e.Exception.ToString());
+                _logger.Fatal("Unobserved task exception: {0}", e.Exception.Message);
+                e.SetObserved();
+                MessagePopupService.Error(e.Exception.ToString());
+            };
+
+            // 单例模式加 IPC 通信
+            _instanceMutex = new Mutex(true, MutexName, out var createdNew);
+            if (!createdNew)
+            {
+                ConnectAndSendArgs();
+                Environment.Exit(0); // 不再启动新实例
+                return;
+            }
+            StartPipeServer();
+        }
+
+        private static void InitializeLogConfiguration()
+        {
+            var config = new NLog.Config.LoggingConfiguration();
+
+            // 文件日志
+            var fileTarget = new NLog.Targets.FileTarget("fileTarget")
+            {
+                Encoding = System.Text.Encoding.UTF8,
+                Layout = "${date:format=yyyy-MM-dd HH\\:mm\\:ss} - ${level:uppercase=true} - ${processid} - ${callsite-filename:includeSourcePath=false}:${callsite-linenumber} - ${message}",
+                AutoFlush = true,
+                CreateDirs = true,
+                FileName = "${basedir}/logs/app.log",
+                ArchiveFileName = "${basedir}/logs/app.{#}.log",
+                ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Rolling,
+                ArchiveAboveSize = 1048576,
+                MaxArchiveFiles = 5,
+                ConcurrentWrites = true,
+                KeepFileOpen = false,
+            };
+
+            config.AddTarget(fileTarget);
+            config.AddRule(LogLevel.Trace, LogLevel.Fatal, fileTarget);
+            LogManager.Configuration = config;
+        }
+
+        private static void ConnectAndSendArgs()
+        {
+            try
+            {
+                // 已有实例在运行，把参数通过命名管道发过去
+                using (var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
+                {
+                    // 只要启动了实例就要进行连接, 10 秒超时
+                    client.Connect(10000);
+
+                    // 但是只有有参数的时候才发送参数
+                    var args = Environment.GetCommandLineArgs().Skip(1).ToArray();
+                    if (args.Length > 0)
+                    {
+                        _logger.Info("Send command line args to existed instance, \"{0}\"", string.Join(", ", args));
+                        using (var writer = new StreamWriter(client))
+                        {
+                            foreach (var v in args)
+                            {
+                                writer.WriteLine(v);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex.ToString());
+                _logger.Error("Failed to pass command line args to existed instance, {0}", ex.Message);
+            }
+        }
+
+        private static void StartPipeServer()
+        {
+            var t = new Task(() =>
+            {
+                // 防止实例和窗口还没创建好
+                while (Current is null) Thread.Sleep(10);
+                while (true)
+                {
+                    var windowCreated = false;
+                    Current.Dispatcher.Invoke(() => windowCreated = Current.MainWindow is MainWindow);
+                    if (windowCreated)
+                        break;
+                    else
+                        Thread.Sleep(100);
+                }
+                while (true)
+                {
+                    try
+                    {
+                        using (var server = new NamedPipeServerStream(PipeName, PipeDirection.In))
+                        {
+                            server.WaitForConnection();
+
+                            // 只要收到连接就可以显示窗口了
+                            Current.Dispatcher.Invoke(() =>
+                            {
+                                var window = (MainWindow)Current.MainWindow;
+                                window.Show();
+                                if (window.WindowState == WindowState.Minimized)
+                                {
+                                    window.WindowState = WindowState.Normal;
+                                }
+                                window.Activate();
+                            });
+                            using (var reader = new StreamReader(server))
+                            {
+                                var args = new List<string>();
+                                string? line;
+                                while ((line = reader.ReadLine()) != null)
+                                    args.Add(line);
+
+                                if (args.Count > 0)
+                                {
+                                    Current.Dispatcher.Invoke(() =>
+                                    {
+                                        // 尝试加载参数内容
+                                        var window = (MainWindow)Current.MainWindow;
+                                        var vm = (MainWindowViewModel)window.DataContext;
+                                        vm.SpineObjectListViewModel.AddSpineObjectFromFileList(args);
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug(ex.ToString());
+                        _logger.Error("Failed to process arguments, {0}", ex.Message);
+                    }
+                }
+            }, default, TaskCreationOptions.LongRunning);
+            t.Start();
+        }
+
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            // 正式启动窗口
+            base.OnStartup(e);
+            var uiCulture = CultureInfo.CurrentUICulture.Name.ToLowerInvariant();
+            _logger.Info("Current UI Culture: {0}", uiCulture);
+            if (uiCulture.StartsWith("zh")) { } // 默认就是中文, 无需操作
+            else if (uiCulture.StartsWith("ja")) Language = AppLanguage.JA;
+            else Language = AppLanguage.EN;
+        }
+
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            _logger.Debug(e.Exception.ToString());
+            _logger.Fatal("Dispatcher unhandled exception: {0}", e.Exception.Message);
+            e.Handled = true;
+            MessagePopupService.Error(e.Exception.ToString());
+        }
+
+        public bool AutoRun
+        {
+            get
+            {
+                try
+                {
+                    using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
+                    {
+                        var command = key?.GetValue(AppName) as string;
+                        return string.Equals(command, AutoRunCommand, StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex.ToString());
+                    _logger.Error("Failed to query autorun registry key, {0}", ex.Message);
+                    return false;
+                }
+            }
+            set
+            {
+                try
+                {
+                    if (value)
+                    {
+                        // 写入自启命令
+                        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
+                        {
+                            key?.SetValue(AppName, AutoRunCommand);
+                        }
+                    }
+                    else
+                    {
+                        // 删除自启命令
+                        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
+                        {
+                            key?.DeleteValue(AppName, false);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex.ToString());
+                    _logger.Error("Failed to set autorun registry key, {0}", ex.Message);
+                }
+            }
+        }
+
+        public bool AssociateFileSuffix
+        {
+            get
+            {
+                try
+                {
+                    // 检查 .skel 的 ProgID 关联
+                    using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Classes\.skel"))
+                    {
+                        var progIdValue = key?.GetValue("") as string;
+                        if (!string.Equals(progIdValue, App.ProgId, StringComparison.OrdinalIgnoreCase))
+                            return false;
+                    }
+
+                    // 检查 .json 的 ProgID 关联
+                    using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Classes\.json"))
+                    {
+                        var progIdValue = key?.GetValue("") as string;
+                        if (!string.Equals(progIdValue, App.ProgId, StringComparison.OrdinalIgnoreCase))
+                            return false;
+                    }
+
+                    // 检查 command 指令是否相同
+                    using (var key = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{App.ProgId}\shell\open\command"))
+                    {
+                        var command = key?.GetValue("") as string;
+                        if (string.IsNullOrWhiteSpace(command))
+                            return false;
+                        return command == ShellOpenCommand;
+                    }
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            set
+            {
+                if (value)
+                {
+                    using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{App.ProgId}"))
+                    {
+                        key?.SetValue("", SkelFileDescription);
+                        using (var iconKey = key?.CreateSubKey("DefaultIcon"))
+                        {
+                            iconKey?.SetValue("", $"\"{SkelIconFilePath}\"");
+                        }
+                        using (var shellKey = key?.CreateSubKey(@"shell\open\command"))
+                        {
+                            shellKey?.SetValue("", ShellOpenCommand);
+                        }
+                    }
+
+                    // .skel 文件关联
+                    using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Classes\.skel"))
+                    {
+                        key?.SetValue("", App.ProgId);
+                    }
+
+                    // .json 文件关联
+                    using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Classes\.json"))
+                    {
+                        key?.SetValue("", App.ProgId);
+                    }
+                }
+                else
+                {
+                    // 删除关联
+                    Registry.CurrentUser.DeleteSubKeyTree(@"Software\Classes\.skel", false);
+                    Registry.CurrentUser.DeleteSubKeyTree(@"Software\Classes\.json", false);
+                    Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\{App.ProgId}", false);
+                }
+
+                Shell32.NotifyAssociationChanged();
+            }
+        }
+
+        /// <summary>
+        /// 程序语言
+        /// </summary>
+        public AppLanguage Language
+        {
+            get => _language;
+            set
+            {
+                var uri = $"Resources/Strings/{value.ToString().ToLowerInvariant()}.xaml";
+                try
+                {
+                    Resources.MergedDictionaries.Add(new() { Source = new(uri, UriKind.Relative) });
+                    _language = value;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex.ToString());
+                    _logger.Error("Failed to switch language to {0}, {1}", value, ex.Message);
+                }
+            }
+        }
+        private AppLanguage _language = AppLanguage.ZH;
+
+        public AppSkin Skin
+        {
+            get => _skin;
+            set
+            {
+                var uri = $"Resources/Skins/{value.ToString().ToLowerInvariant()}.xaml";
+                try
+                {
+                    Resources.MergedDictionaries.Add(new() { Source = new(uri, UriKind.Relative) });
+                    Resources.MergedDictionaries.Add(new() { Source = new("Resources/Theme.xaml", UriKind.Relative) });
+                    Current.MainWindow.SetWindowTextColor(AppResource.Color_PrimaryText);
+                    Current.MainWindow.SetWindowCaptionColor(AppResource.Color_Region);
+                    _skin = value;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug(ex.ToString());
+                    _logger.Error("Failed to switch skin to {0}, {1}", value, ex.Message);
+                }
+            }
+        }
+        private AppSkin _skin = AppSkin.Light;
+    }
+
+    public enum AppLanguage
+    {
+        ZH,
+        EN,
+        JA
+    }
+
+    public enum AppSkin
+    {
+        Light,
+        Dark,
+        Violet,
+    }
+}

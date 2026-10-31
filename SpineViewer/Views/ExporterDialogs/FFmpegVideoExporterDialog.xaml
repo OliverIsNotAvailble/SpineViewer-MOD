@@ -1,0 +1,306 @@
+﻿<Window x:Class="SpineViewer.Views.ExporterDialogs.FFmpegVideoExporterDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        xmlns:local="clr-namespace:SpineViewer.Views.ExporterDialogs"
+        xmlns:utils="clr-namespace:SpineViewer.Utils"
+        xmlns:vmexp="clr-namespace:SpineViewer.ViewModels.Exporters"
+        d:DataContext="{d:DesignInstance Type=vmexp:FFmpegVideoExporterViewModel}"
+        mc:Ignorable="d"
+        Title="{DynamicResource Str_FFmpegVideoExporterTitle}"
+        Background="{DynamicResource RegionBrush}"
+        Width="450"
+        Height="750"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom">
+            <WrapPanel HorizontalAlignment="Center">
+                <WrapPanel.Resources>
+                    <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ButtonDefault}">
+                        <Setter Property="Margin" Value="5"/>
+                        <Setter Property="Width" Value="100"/>
+                    </Style>
+                </WrapPanel.Resources>
+                <Button Content="{DynamicResource Str_OK}" Click="ButtonOK_Click"/>
+                <Button Content="{DynamicResource Str_Cancel}" Click="ButtonCancel_Click"/>
+            </WrapPanel>
+        </Border>
+
+        <Border>
+            <Border.Resources>
+                <Style TargetType="{x:Type Label}" BasedOn="{StaticResource MyLabelStyle}">
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                </Style>
+                <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource TextBoxBaseStyle}">
+                    <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                </Style>
+                <Style TargetType="{x:Type ComboBox}" BasedOn="{StaticResource ComboBoxBaseStyle}">
+                    <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                </Style>
+                <Style TargetType="{x:Type ToggleButton}" BasedOn="{StaticResource MyToggleButtonBaseStyle}">
+                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                </Style>
+                <Style TargetType="{x:Type GroupBox}" BasedOn="{StaticResource MyGroupBoxBaseStyle}">
+                    <Setter Property="Margin" Value="0 5 0 10"/>
+                </Style>
+            </Border.Resources>
+
+            <ScrollViewer Style="{StaticResource MyVerticalScrollViewerBaseStyle}">
+                <StackPanel Grid.IsSharedSizeScope="True">
+                    <GroupBox Header="{DynamicResource Str_ExportBaseArgs}">
+                        <StackPanel>
+                            <!-- 水平分辨率 -->
+                            <Grid IsEnabled="{Binding AutoResolution, Converter={StaticResource Boolean2BooleanReConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_ResolutionX}" ToolTip="{DynamicResource Str_ResolutionTooltip}"/>
+                                <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding ResolutionX, Mode=OneWay}" ToolTip="{DynamicResource Str_ResolutionTooltip}"/>
+                            </Grid>
+
+                            <!-- 垂直分辨率 -->
+                            <Grid IsEnabled="{Binding AutoResolution, Converter={StaticResource Boolean2BooleanReConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_ResolutionY}" ToolTip="{DynamicResource Str_ResolutionTooltip}"/>
+                                <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding ResolutionY, Mode=OneWay}" ToolTip="{DynamicResource Str_ResolutionTooltip}"/>
+                            </Grid>
+
+                            <!-- 是否导出单个 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_ExportSingle}" ToolTip="{DynamicResource Str_ExportSingleTooltip}"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding ExportSingle}" ToolTip="{DynamicResource Str_ExportSingleTooltip}"/>
+                            </Grid>
+
+                            <!-- 输出文件夹 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_OutputDir}" ToolTip="{DynamicResource Str_OutputDirTooltip}"/>
+                                <DockPanel Grid.Column="1">
+                                    <Button DockPanel.Dock="Right" Content="..." Command="{Binding Cmd_SelectOutputDir}"/>
+                                    <TextBox Text="{Binding OutputDir}" ToolTip="{DynamicResource Str_OutputDirTooltip}"/>
+                                </DockPanel>
+                            </Grid>
+
+                            <!-- 背景颜色 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_BackgroundColor}" ToolTip="#AARRGGBB"/>
+                                <DockPanel Grid.Column="1">
+                                    <Border DockPanel.Dock="Right">
+                                        <Popup x:Name="_colorPopup" Placement="Right">
+                                            <hc:ColorPicker Confirmed="ColorPicker_Confirmed" Canceled="ColorPicker_Canceled"/>
+                                        </Popup>
+                                    </Border>
+                                    <Border DockPanel.Dock="Right" Background="White" CornerRadius="{DynamicResource DefaultCornerRadius}">
+                                        <Button Content="..." 
+                                                Foreground="{Binding BackgroundColor, Converter={StaticResource Bg2FgCvter}}"
+                                                Click="ButtonPickColor_Click">
+                                            <Button.Background>
+                                                <SolidColorBrush Color="{Binding BackgroundColor}"/>
+                                            </Button.Background>
+                                        </Button>
+                                    </Border>
+                                    <TextBox Text="{Binding BackgroundColor}" ToolTip="#AARRGGBB"/>
+                                </DockPanel>
+                            </Grid>
+
+                            <!-- 四周边距 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_Margin}" ToolTip="{DynamicResource Str_MarginTooltip}"/>
+                                <TextBox Grid.Column="1" Text="{Binding Margin}" ToolTip="{DynamicResource Str_MarginTooltip}"/>
+
+                            </Grid>
+
+                            <!-- 自动分辨率 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_AutoResolution}" ToolTip="{DynamicResource Str_AutoResolutionTooltip}"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding AutoResolution}" ToolTip="{DynamicResource Str_AutoResolutionTooltip}"/>
+                            </Grid>
+
+                            <!-- 最大分辨率 -->
+                            <Grid IsEnabled="{Binding AutoResolution}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_MaxResolution}" ToolTip="{DynamicResource Str_MaxResolutionTooltip}"/>
+                                <TextBox Grid.Column="1" Text="{Binding MaxResolution}" ToolTip="{DynamicResource Str_MaxResolutionTooltip}"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="{DynamicResource Str_ExportVideoArgs}">
+                        <StackPanel>
+                            <!-- 导出时长 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_Duration}" ToolTip="{DynamicResource Str_ExportDurationTooltip}"/>
+                                <TextBox Grid.Column="1" Text="{Binding Duration}" ToolTip="{DynamicResource Str_ExportDurationTooltip}"/>
+                            </Grid>
+
+                            <!-- 导出帧率 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_Fps}"/>
+                                <TextBox Grid.Column="1" Text="{Binding Fps}"/>
+                            </Grid>
+
+                            <!-- 导出速度 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_ExportSpeed}" ToolTip="{DynamicResource Str_ExportSpeedTooltip}"/>
+                                <TextBox Grid.Column="1" Text="{Binding Speed}" ToolTip="{DynamicResource Str_ExportSpeedTooltip}"/>
+                            </Grid>
+
+                            <!-- 是否保留最后一帧 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_KeepLastFrame}" ToolTip="{DynamicResource Str_KeepLastFrameTooltip}"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding KeepLast}" ToolTip="{DynamicResource Str_KeelLastFrameTooltip}"/>
+                            </Grid>
+
+                            <!-- 是否禁用轨道动画循环 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_DisableTrackLoop}" ToolTip="{DynamicResource Str_DisableTrackLoopTooltip}"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding DisableTrackLoop}" ToolTip="{DynamicResource Str_DisableTrackLoopTooltip}"/>
+                            </Grid>
+
+                            <!-- 是否导出全部动画 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="Export all animations" ToolTip="批量导出当前模型中的所有动画，并使用当前预览视区参数"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding ExportAllAnimations}" ToolTip="批量导出当前模型中的所有动画，并使用当前预览视区参数"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="{DynamicResource Str_ExportOtherArgs}">
+                        <StackPanel>
+                            <!-- 视频格式 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_VideoFormat}"/>
+                                <ComboBox Grid.Column="1" SelectedItem="{Binding Format}" ItemsSource="{x:Static vmexp:FFmpegVideoExporterViewModel.VideoFormatOptions}"/>
+                            </Grid>
+
+                            <!-- 动图是否循环 -->
+                            <Grid Visibility="{Binding EnableParamLoop, Converter={StaticResource Boolean2VisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_LoopPlay}" ToolTip="{DynamicResource Str_LoopPlayTooltip}"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding Loop}" ToolTip="{DynamicResource Str_LoopPlayTooltip}"/>
+                            </Grid>
+
+                            <!-- 质量参数 -->
+                            <Grid Visibility="{Binding EnableParamQuality, Converter={StaticResource Boolean2VisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_QualityParameter}" ToolTip="{DynamicResource Str_QualityParameterTooltip}"/>
+                                <TextBox Grid.Column="1" Text="{Binding Quality}" ToolTip="{DynamicResource Str_QualityParameterTooltip}"/>
+                            </Grid>
+
+                            <!-- 无损压缩 -->
+                            <Grid Visibility="{Binding EnableParamLossless, Converter={StaticResource Boolean2VisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_LosslessParam}" ToolTip="{DynamicResource Str_LosslessParamTooltip}"/>
+                                <ToggleButton Grid.Column="1" IsChecked="{Binding Lossless}" ToolTip="{DynamicResource Str_LosslessParamTooltip}"/>
+                            </Grid>
+
+                            <!-- 预测器方法 -->
+                            <Grid Visibility="{Binding EnableParamApngPred, Converter={StaticResource Boolean2VisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_PredMethod}" ToolTip="{DynamicResource Str_PredMethodTooltip}"/>
+                                <ComboBox Grid.Column="1" 
+                                          SelectedItem="{Binding PredMethod}" 
+                                          ItemsSource="{x:Static vmexp:FFmpegVideoExporterViewModel.ApngPredMethodOptions}" 
+                                          ToolTip="{DynamicResource Str_PredMethodTooltip}"/>
+                            </Grid>
+
+                            <!-- CRF 参数 -->
+                            <Grid Visibility="{Binding EnableParamCrf, Converter={StaticResource Boolean2VisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_CrfParameter}" ToolTip="{DynamicResource Str_CrfParameterTooltip}"/>
+                                <TextBox Grid.Column="1" Text="{Binding Crf}" ToolTip="{DynamicResource Str_CrfParameterTooltip}"/>
+                            </Grid>
+
+                            <!-- Profile 参数 -->
+                            <Grid Visibility="{Binding EnableParamProfile, Converter={StaticResource Boolean2VisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Label Content="{DynamicResource Str_ProfileParameter}" ToolTip="{DynamicResource Str_ProfileParameterTooltip}"/>
+                                <ComboBox Grid.Column="1" 
+                                          SelectedItem="{Binding Profile}" 
+                                          ItemsSource="{x:Static vmexp:FFmpegVideoExporterViewModel.MovProfileOptions}" 
+                                          ToolTip="{DynamicResource Str_ProfileParameterTooltip}"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
+
+        </Border>
+    </DockPanel>
+</Window>

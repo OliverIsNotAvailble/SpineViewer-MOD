@@ -1,0 +1,25 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace PsdWriter.Sections.Layers
+{
+    internal class DividerLayer : Layer
+    {
+        public DividerLayer(string name, uint dividerType) : base(name, 0, 0)
+        {
+            using (var ms = new MemoryStream())
+            {
+                // 16 bytes (Section divider setting)
+                ms.Write(Encoding.ASCII.GetBytes("8BIMlsct"));
+                ms.WriteU32BE(4);
+                ms.WriteU32BE(dividerType);
+                _additionalInfo.Add(ms.ToArray());
+            }
+
+            ClearPixels();
+        }
+    }
+}

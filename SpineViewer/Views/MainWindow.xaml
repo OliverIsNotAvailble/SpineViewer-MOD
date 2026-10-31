@@ -1,0 +1,1155 @@
+﻿<Window x:Class="SpineViewer.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        xmlns:vm="clr-namespace:SpineViewer.ViewModels.MainWindow"
+        xmlns:SFMLRenderer="clr-namespace:SFMLRenderer;assembly=SFMLRenderer"
+        mc:Ignorable="d"
+        x:Name="_mainWindow"
+        d:DataContext="{d:DesignInstance Type={x:Type vm:MainWindowViewModel}}"
+        Title="{Binding Title}"
+        Width="1280"
+        Height="720"
+        Background="{DynamicResource RegionBrush}"
+        WindowStartupLocation="CenterScreen"
+        Visibility="{Binding Visibility, Mode=OneWayToSource}"
+        PreviewKeyDown="MainWindow_PreviewKeyDown"
+        LocationChanged="MainWindow_LocationChanged"
+        SizeChanged="MainWindow_SizeChanged">
+
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo ProgressState="{Binding ProgressState}" ProgressValue="{Binding ProgressValue}"/>
+    </Window.TaskbarItemInfo>
+
+    <Grid>
+        <!-- 非可视元素通知栏图标 -->
+        <hc:NotifyIcon x:Name="_notifyIcon"
+                       Icon="/Resources/Images/spineviewer.ico"
+                       Click="_notifyIcon_Click"
+                       MouseDoubleClick="_notifyIcon_MouseDoubleClick">
+            <hc:NotifyIcon.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{DynamicResource Str_Debug}" Click="DebugMenuItem_Click" Visibility="{Binding IsDebug, Mode=OneWay, Converter={StaticResource Boolean2VisibilityConverter}}"/>
+                    <MenuItem Header="{DynamicResource Str_WallpaperView}" Command="{Binding Cmd_SwitchWallpaperView}" IsChecked="{Binding PreferenceViewModel.WallpaperView}"/>
+                    <Separator/>
+                    <MenuItem Header="{DynamicResource Str_Exit}" Command="{Binding Cmd_ExitFromTray}"/>
+                </ContextMenu>
+            </hc:NotifyIcon.ContextMenu>
+        </hc:NotifyIcon>
+
+        <!-- 非全屏布局框架 -->
+        <Grid x:Name="_normalLayout" Visibility="Visible">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 菜单容器 -->
+            <Border Grid.Row="0" x:Name="_mainMenuContainer">
+
+                <!-- 菜单 -->
+                <Menu x:Name="_mainMenu">
+                    <MenuItem Header="{DynamicResource Str_File}">
+                        <MenuItem Header="{DynamicResource Str_OpenWorkspace}" Command="{Binding Cmd_OpenWorkspace}"/>
+                        <MenuItem Header="{DynamicResource Str_SaveWorkspace}" Command="{Binding Cmd_SaveWorkspace}"/>
+                        <Separator/>
+                        <MenuItem Header="{DynamicResource Str_PreferenceWithDots}" Command="{Binding PreferenceViewModel.Cmd_ShowPreferenceDialog}"/>
+                        <!--<MenuItem Header="{DynamicResource Str_Exit}" InputGestureText="Alt+F4"/>-->
+                    </MenuItem>
+                    <!--<MenuItem Header="{DynamicResource Str_Tool}"/>-->
+                    <!--<MenuItem Header="{DynamicResource Str_Download}"/>-->
+                    <MenuItem Header="{DynamicResource Str_Help}">
+                        <MenuItem Header="{DynamicResource Str_DownloadFFmpeg}" Command="{Binding Cmd_DownloadFFmpeg}"/>
+                        <MenuItem Header="{DynamicResource Str_DiagnosticsTools}">
+                            <MenuItem Header="{DynamicResource Str_SystemInfo}" Command="{Binding Cmd_ShowSystemInfoDialog}"/>
+                            <MenuItem Header="{DynamicResource Str_DebugWorkerW}" Command="{Binding Cmd_OutputWorkerWDebugInfo}"/>
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str_Abount}" Command="{Binding Cmd_ShowAboutDialog}"/>
+                        <MenuItem Header="{DynamicResource Str_Debug}" Click="DebugMenuItem_Click" Visibility="{Binding IsDebug, Mode=OneWay, Converter={StaticResource Boolean2VisibilityConverter}}"/>
+                    </MenuItem>
+                    <!--<MenuItem Header="{DynamicResource Str_Experiment}"/>-->
+                </Menu>
+
+            </Border>
+
+            <Border Grid.Row="1">
+                <Grid x:Name="_rootGrid">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="2.5*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 功能页容器 -->
+                    <Border Grid.Column="0" x:Name="_mainTabControlContainer">
+
+                        <!-- 功能页 -->
+                        <TabControl x:Name="_mainTabControl" TabStripPlacement="Left">
+
+                            <!-- 模型列表页 -->
+                            <TabItem>
+                                <TabItem.Header>
+                                    <Border Style="{StaticResource MyTabItemHeaderContainerStyle}"
+                                            MouseLeftButtonDown="MainTabControlHeader_MouseLeftButtonDown">
+                                        <Viewbox Width="24" Height="24" ToolTip="{DynamicResource Str_SpineObject}">
+                                            <Path Data="{StaticResource Geo_Cubes}" Style="{StaticResource MyTabItemHeaderPathStyle}"/>
+                                        </Viewbox>
+                                    </Border>
+                                </TabItem.Header>
+                                <Grid x:Name="_modelListGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- 模型列表 -->
+                                    <DockPanel DataContext="{Binding SpineObjectListViewModel}">
+                                        <StatusBar DockPanel.Dock="Bottom">
+                                            <StatusBarItem>
+                                                <TextBlock>
+                                                    <TextBlock.Text>
+                                                        <MultiBinding Converter="{StaticResource StrFmtCvter}" ConverterParameter="Str_ListViewStatusBar">
+                                                            <Binding Path="Items.Count" ElementName="_spinesListView"/>
+                                                            <Binding Path="SelectedItems.Count" ElementName="_spinesListView"/>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text>
+                                                </TextBlock>
+                                            </StatusBarItem>
+                                        </StatusBar>
+
+                                        <ListView x:Name="_spinesListView"
+                                                  ItemsSource="{Binding SpineObjects}"
+                                                  AllowDrop="True"
+                                                  PreviewMouseLeftButtonDown="SpinesListView_PreviewMouseLeftButtonDown"
+                                                  MouseMove="SpinesListView_MouseMove"
+                                                  MouseLeftButtonUp="SpinesListView_MouseLeftButtonUp" 
+                                                  DragEnter="SpinesListView_DragEnter" 
+                                                  Drop="SpinesListView_Drop">
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="SelectionChanged">
+                                                    <i:InvokeCommandAction Command="{Binding Cmd_ListViewSelectionChanged}"
+                                                                           CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+
+                                            <ListView.InputBindings>
+                                                <KeyBinding Gesture="Delete" Command="{Binding Cmd_RemoveSpineObject}" CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                                <KeyBinding Gesture="Ctrl+V" Command="{Binding Cmd_AddSpineObjectFromClipboard}"/>
+                                                <KeyBinding Gesture="Ctrl+R" Command="{Binding Cmd_ReloadSpineObject}" CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                                <KeyBinding Gesture="Alt+W" Command="{Binding Cmd_MoveUpSpineObject}" CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                                <KeyBinding Gesture="Alt+S" Command="{Binding Cmd_MoveDownSpineObject}" CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                                <KeyBinding Gesture="Ctrl+Shift+C" Command="{Binding Cmd_CopySpineObjectConfig}" CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                                <KeyBinding Gesture="Ctrl+Shift+V" Command="{Binding Cmd_ApplySpineObjectConfig}" CommandParameter="{Binding SelectedItems, ElementName=_spinesListView}"/>
+                                            </ListView.InputBindings>
+
+                                            <ListView.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="{DynamicResource Str_AddSpineObject}"
+                                                              Command="{Binding Cmd_AddSpineObject}"/>
+                                                    <MenuItem Header="{DynamicResource Str_AddSpineObjectFromClipboard}"
+                                                              InputGestureText="Ctrl+V"
+                                                              Command="{Binding Cmd_AddSpineObjectFromClipboard}"/>
+                                                    <MenuItem Header="{DynamicResource Str_RemoveSpineObject}"
+                                                              InputGestureText="Delete"
+                                                              Command="{Binding Cmd_RemoveSpineObject}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <MenuItem Header="{DynamicResource Str_RemoveAllSpineObject}"
+                                                              Command="{Binding Cmd_RemoveAllSpineObject}"
+                                                              CommandParameter="{Binding PlacementTarget.Items, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <MenuItem Header="{DynamicResource Str_Reload}"
+                                                              InputGestureText="Ctrl+R"
+                                                              Command="{Binding Cmd_ReloadSpineObject}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="{DynamicResource Str_MoveUpSpineObject}"
+                                                              InputGestureText="Alt+W"
+                                                              Command="{Binding Cmd_MoveUpSpineObject}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <MenuItem Header="{DynamicResource Str_MoveDownSpineObject}"
+                                                              InputGestureText="Alt+S"
+                                                              Command="{Binding Cmd_MoveDownSpineObject}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="{DynamicResource Str_SpineObjectConfig}">
+                                                        <MenuItem Header="{DynamicResource Str_CopySpineObjectConfig}"
+                                                              InputGestureText="Ctrl+Shift+C"
+                                                              Command="{Binding Cmd_CopySpineObjectConfig}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_CopySpineObjectSkinConfig}"
+                                                              Command="{Binding Cmd_CopySpineObjectSkinConfig}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_CopySpineObjectSlotAttachmentConfig}"
+                                                              Command="{Binding Cmd_CopySpineObjectSlotAttachmentConfig}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_CopySpineObjectSlotVisibilityConfig}"
+                                                              Command="{Binding Cmd_CopySpineObjectSlotVisibilityConfig}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_ApplySpineObjectConfig}"
+                                                              InputGestureText="Ctrl+Shift+V"
+                                                              Command="{Binding Cmd_ApplySpineObjectConfig}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <Separator/>
+                                                        <MenuItem Header="{DynamicResource Str_ApplySpineObjectConfigFromFile}"
+                                                              Command="{Binding Cmd_ApplySpineObjectConfigFromFile}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_SaveSpineObjectConfigToFile}"
+                                                              Command="{Binding Cmd_SaveSpineObjectConfigToFile}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    </MenuItem>
+                                                    <MenuItem Header="{DynamicResource Str_Export}">
+                                                        <MenuItem Header="{DynamicResource Str_ExportFrame}"
+                                                                  Command="{Binding FrameExporterViewModel.Cmd_Export}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_ExportPsd}"
+                                                                  Command="{Binding PsdExporterViewModel.Cmd_Export}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_ExportFrameSequence}"
+                                                                  Command="{Binding FrameSequenceExporterViewModel.Cmd_Export}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_ExportVideo}"
+                                                                  Command="{Binding FFmpegVideoExporterViewModel.Cmd_Export}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_ExportCustom}"
+                                                                  Command="{Binding CustomFFmpegExporterViewModel.Cmd_Export}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </ListView.ContextMenu>
+
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Header="{DynamicResource Str_Name}" 
+                                                                    DisplayMemberBinding="{Binding Name}"
+                                                                    Width="150"/>
+                                                    <GridViewColumn Header="{DynamicResource Str_Show}">
+                                                        <GridViewColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <CheckBox IsChecked="{Binding IsShown}"/>
+                                                            </DataTemplate>
+                                                        </GridViewColumn.CellTemplate>
+                                                    </GridViewColumn>
+                                                </GridView>
+                                            </ListView.View>
+                                        </ListView>
+                                    </DockPanel>
+
+                                    <GridSplitter Grid.Row="1" ResizeDirection="Rows"/>
+
+                                    <!-- 模型属性标签页 -->
+                                    <TabControl Grid.Row="2" 
+                                                TabStripPlacement="Bottom"
+                                                DataContext="{Binding SpineObjectTabViewModel}">
+                                        <TabControl.Resources>
+                                            <Style TargetType="{x:Type Label}" BasedOn="{StaticResource MyLabelStyle}">
+                                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                            </Style>
+                                            <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource TextBoxBaseStyle}">
+                                                <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                            </Style>
+                                            <Style TargetType="{x:Type ComboBox}" BasedOn="{StaticResource ComboBoxBaseStyle}">
+                                                <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                            </Style>
+                                            <Style TargetType="{x:Type ToggleButton}" BasedOn="{StaticResource MyToggleButtonBaseStyle}">
+                                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                            </Style>
+                                        </TabControl.Resources>
+
+                                        <!-- 基本属性页 -->
+                                        <TabItem Header="{DynamicResource Str_BaseInfo}">
+                                            <ScrollViewer Style="{StaticResource MyVerticalScrollViewerBaseStyle}">
+                                                <StackPanel Grid.IsSharedSizeScope="True">
+                                                    <!-- 名称 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_Name}"/>
+                                                        <TextBox Grid.Column="1" 
+                                                             Text="{Binding Name, Mode=OneWay}" 
+                                                             IsReadOnly="True"
+                                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                                    </Grid>
+
+                                                    <!-- 运行时版本 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_Version}"/>
+                                                        <TextBox Grid.Column="1" 
+                                                             Text="{Binding Version, Mode=OneWay}" 
+                                                             IsReadOnly="True" 
+                                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                                    </Grid>
+
+                                                    <!-- 文件版本 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_FileVersion}"/>
+                                                        <TextBox Grid.Column="1" 
+                                                             Text="{Binding FileVersion, Mode=OneWay}" 
+                                                             IsReadOnly="True"
+                                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                                    </Grid>
+
+                                                    <!-- 资源目录 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_AssetsDir}"/>
+                                                        <TextBox Grid.Column="1" 
+                                                             Text="{Binding AssetsDir, Mode=OneWay}" 
+                                                             IsReadOnly="True"
+                                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                                    </Grid>
+
+                                                    <!-- skel 文件路径 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_SkelPath}"/>
+                                                        <TextBox Grid.Column="1" 
+                                                             Text="{Binding SkelPath, Mode=OneWay}" 
+                                                             IsReadOnly="True"
+                                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                                    </Grid>
+
+                                                    <!-- atlas 文件路径 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_AtlasPath}"/>
+                                                        <TextBox Grid.Column="1" 
+                                                             Text="{Binding AtlasPath, Mode=OneWay}" 
+                                                             IsReadOnly="True"
+                                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </TabItem>
+
+                                        <!-- 渲染属性页 -->
+                                        <TabItem Header="{DynamicResource Str_Render}">
+                                            <ScrollViewer Style="{StaticResource MyVerticalScrollViewerBaseStyle}">
+                                                <StackPanel Grid.IsSharedSizeScope="True">
+                                                    <!-- 显示 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_IsShown}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding IsShown}"/>
+                                                    </Grid>
+
+                                                    <!-- 预乘通道 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_UsePma}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding UsePma}"/>
+                                                    </Grid>
+
+                                                    <!-- 物理 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_Physics}"/>
+                                                        <ComboBox Grid.Column="1" 
+                                                              SelectedValue="{Binding Physics}" 
+                                                              ItemsSource="{x:Static vm:SpineObjectTabViewModel.PhysicsOptions}"/>
+                                                    </Grid>
+
+                                                    <!-- 时间因子 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_TimeScale}" ToolTip="{DynamicResource Str_TimeScaleTootltip}"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding TimeScale}" ToolTip="{DynamicResource Str_TimeScaleTootltip}"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </TabItem>
+
+                                        <!-- 变换属性页 -->
+                                        <TabItem Header="{DynamicResource Str_Transform}">
+                                            <ScrollViewer Style="{StaticResource MyVerticalScrollViewerBaseStyle}">
+                                                <StackPanel Grid.IsSharedSizeScope="True">
+                                                    <!-- 缩放 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_Scale}"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding Scale}"/>
+                                                    </Grid>
+
+                                                    <!-- 水平翻转 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_FlipX}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding FlipX}"/>
+                                                    </Grid>
+
+                                                    <!-- 垂直翻转 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_FlipY}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding FlipY}"/>
+                                                    </Grid>
+
+                                                    <!-- 横坐标 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_X}"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding X}"/>
+                                                    </Grid>
+
+                                                    <!-- 纵坐标 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_Y}"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding Y}"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </TabItem>
+
+                                        <!-- 皮肤属性页 -->
+                                        <TabItem Header="{DynamicResource Str_Skin}">
+                                            <ListBox ItemsSource="{Binding Skins}">
+                                                <ListBox.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="{DynamicResource Str_Enable}" 
+                                                                  Command="{Binding Cmd_EnableSkins}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_Disable}" 
+                                                                  Command="{Binding Cmd_DisableSkins}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_EnableAll}" Command="{Binding Cmd_EnableAllSkins}"/>
+                                                        <MenuItem Header="{DynamicResource Str_DisableAll}" Command="{Binding Cmd_DisableAllSkins}"/>
+                                                    </ContextMenu>
+                                                </ListBox.ContextMenu>
+
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Padding="2">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Label Grid.Column="0" Content="{Binding Name}"/>
+                                                                <ToggleButton Grid.Column="1" IsChecked="{Binding Status}"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </TabItem>
+
+                                        <!-- 插槽属性页 -->
+                                        <TabItem Header="{DynamicResource Str_Slot}">
+                                            <DockPanel>
+                                                <hc:TextBox hc:InfoElement.Placeholder="{DynamicResource Str_Filter}"
+                                                            Text="{Binding SlotFilterString, UpdateSourceTrigger=PropertyChanged}" 
+                                                            DockPanel.Dock="Top"/>
+                                                <ListBox ItemsSource="{Binding Slots}" Grid.IsSharedSizeScope="True">
+                                                    <ListBox.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="{DynamicResource Str_Enable}" 
+                                                                  Command="{Binding Cmd_EnableSlots}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                            <MenuItem Header="{DynamicResource Str_Disable}" 
+                                                                  Command="{Binding Cmd_DisableSlots}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                            <MenuItem Header="{DynamicResource Str_EnableAll}" Command="{Binding Cmd_EnableAllSlots}"/>
+                                                            <MenuItem Header="{DynamicResource Str_DisableAll}" Command="{Binding Cmd_DisableAllSlots}"/>
+                                                        </ContextMenu>
+                                                    </ListBox.ContextMenu>
+
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Padding="2">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="ColSlotName"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Label Grid.Column="0" Content="{Binding SlotName}" HorizontalAlignment="Left"/>
+                                                                    <ToggleButton Grid.Column="2" IsChecked="{Binding Visible}"/>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </DockPanel>
+                                        </TabItem>
+
+                                        <!-- 动画属性页 -->
+                                        <TabItem Header="{DynamicResource Str_Animation}">
+                                            <ListBox ItemsSource="{Binding AnimationTracks}" Grid.IsSharedSizeScope="True">
+                                                <ListBox.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="{DynamicResource Str_AppendTrack}" 
+                                                                  Command="{Binding Cmd_AppendTrack}"/>
+                                                        <MenuItem Header="{DynamicResource Str_InsertTrack}" 
+                                                                  Command="{Binding Cmd_InsertTrack}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                        <MenuItem Header="{DynamicResource Str_ClearTrack}" 
+                                                                  Command="{Binding Cmd_ClearTrack}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    </ContextMenu>
+                                                </ListBox.ContextMenu>
+
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Padding="2">
+                                                            <Expander Grid.Column="2" HorizontalContentAlignment="Stretch">
+                                                                <Expander.Header>
+                                                                    <!-- hc 的 Expander 模板自带左侧 10 的 padding, 此处用 -10 的 margin 来抵消去除 -->
+                                                                    <Grid Margin="-10 0 0 0" MouseLeftButtonDown="AnimationExpanderHeaderGrid_MouseLeftButtonDown">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ColTrackIdx"/>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ColAniTime"/>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Label Grid.Column="0" 
+                                                                               Content="{Binding TrackIndex}" 
+                                                                               HorizontalContentAlignment="Left" 
+                                                                               VerticalAlignment="Top"/>
+                                                                        <Label Grid.Column="1" 
+                                                                               Content="{Binding AnimationDuration}" 
+                                                                               VerticalAlignment="Top" 
+                                                                               ContentStringFormat="{}{0:F3} s"/>
+                                                                        <ComboBox Grid.Column="2" 
+                                                                                  Focusable="True" 
+                                                                                  SelectedValue="{Binding AnimationName}" 
+                                                                                  ItemsSource="{Binding AnimationNames}"/>
+                                                                    </Grid>
+                                                                </Expander.Header>
+                                                                <Grid Margin="1 0 0 0">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Grid.RowDefinitions>
+                                                                        <RowDefinition Height="Auto"/>
+                                                                        <RowDefinition Height="Auto"/>
+                                                                    </Grid.RowDefinitions>
+
+                                                                    <!-- 时间因子 -->
+                                                                    <Label Grid.Row="0" Grid.Column="0" Content="{DynamicResource Str_TrackTimeScale}" ToolTip="{DynamicResource Str_TrackTimeScaleTooltip}"/>
+                                                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrackTimeScale, StringFormat='{}{0:F3}'}" ToolTip="{DynamicResource Str_TrackTimeScaleTooltip}"/>
+
+                                                                    <!-- Alpha 混合 -->
+                                                                    <Label Grid.Row="1" Grid.Column="0" Content="{DynamicResource Str_TrackAlpha}" ToolTip="{DynamicResource Str_TrackAlphaTooltip}"/>
+                                                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TrackAlpha, StringFormat='{}{0:F3}'}" ToolTip="{DynamicResource Str_TrackAlphaTooltip}"/>
+                                                                </Grid>
+                                                            </Expander>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </TabItem>
+
+                                        <!-- 调试属性页 -->
+                                        <TabItem Header="{DynamicResource Str_Debug}">
+                                            <ScrollViewer Style="{StaticResource MyVerticalScrollViewerBaseStyle}">
+                                                <StackPanel Grid.IsSharedSizeScope="True">
+                                                    <!-- 调试纹理 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugTexture}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugTexture}"/>
+                                                    </Grid>
+
+                                                    <!-- 调试包围盒 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugBounds}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugBounds}"/>
+                                                    </Grid>
+
+                                                    <!-- 调试骨骼 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugBones}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugBones}"/>
+                                                    </Grid>
+
+                                                    <!-- 调试区域 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugRegions}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugRegions}"/>
+                                                    </Grid>
+
+                                                    <!-- 调试网格外壳 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugMeshHulls}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugMeshHulls}"/>
+
+                                                    </Grid>
+
+                                                    <!-- 调试网格 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugMeshes}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugMeshes}"/>
+                                                    </Grid>
+
+                                                    <!-- 调试裁剪 -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Label Content="{DynamicResource Str_DebugClippings}"/>
+                                                        <ToggleButton Grid.Column="1" IsChecked="{Binding DebugClippings}"/>
+                                                    </Grid>
+
+                                                    <!-- 调试碰撞盒 -->
+                                                    <!--<Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Label Content="{DynamicResource Str_DebugBoundingBoxes}"/>
+                                                    <ToggleButton Grid.Column="1" IsChecked="{Binding DebugBoundingBoxes}"/>
+                                                </Grid>-->
+
+                                                    <!-- 调试路径 -->
+                                                    <!--<Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Label Content="{DynamicResource Str_DebugPaths}"/>
+                                                    <ToggleButton Grid.Column="1" IsChecked="{Binding DebugPaths}"/>
+                                                </Grid>-->
+
+                                                    <!-- 调试点 -->
+                                                    <!--<Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Label Content="{DynamicResource Str_DebugPoints}"/>
+                                                    <ToggleButton Grid.Column="1" IsChecked="{Binding DebugPoints}"/>
+                                                </Grid>-->
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </TabItem>
+                                    </TabControl>
+                                </Grid>
+                            </TabItem>
+
+                            <!-- 画面参数页 -->
+                            <TabItem DataContext="{Binding SFMLRendererViewModel}">
+                                <TabItem.Header>
+                                    <Border Style="{StaticResource MyTabItemHeaderContainerStyle}"
+                                            MouseLeftButtonDown="MainTabControlHeader_MouseLeftButtonDown">
+                                        <Viewbox Width="24" Height="24" ToolTip="{DynamicResource Str_Canvas}" >
+                                            <Path Data="{StaticResource Geo_Sliders}" Style="{StaticResource MyTabItemHeaderPathStyle}"/>
+                                        </Viewbox>
+                                    </Border>
+                                </TabItem.Header>
+                                <TabItem.Resources>
+                                    <Style TargetType="{x:Type Label}" BasedOn="{StaticResource MyLabelStyle}">
+                                        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                    </Style>
+                                    <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource TextBoxBaseStyle}">
+                                        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                    </Style>
+                                    <Style TargetType="{x:Type ComboBox}" BasedOn="{StaticResource ComboBoxBaseStyle}">
+                                        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                    </Style>
+                                    <Style TargetType="{x:Type ToggleButton}" BasedOn="{StaticResource MyToggleButtonBaseStyle}">
+                                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    </Style>
+                                </TabItem.Resources>
+                                <ScrollViewer Style="{StaticResource MyVerticalScrollViewerBaseStyle}">
+                                    <StackPanel Grid.IsSharedSizeScope="True">
+                                    <!-- 水平分辨率 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_ResolutionX}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding ResolutionX}"/>
+                                    </Grid>
+
+                                    <!-- 垂直分辨率 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_ResolutionY}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding ResolutionY}"/>
+                                    </Grid>
+
+                                    <!-- 中心点横坐标 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_CenterX}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding CenterX}"/>
+                                    </Grid>
+
+                                    <!-- 中心点纵坐标 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_CenterY}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding CenterY}"/>
+                                    </Grid>
+
+                                    <!-- 缩放 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_Zoom}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Zoom}"/>
+                                    </Grid>
+
+                                    <!-- 旋转角度 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_Rotation}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Rotation}"/>
+                                    </Grid>
+
+                                    <!-- 水平翻转 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_FlipX}"/>
+                                        <ToggleButton Grid.Column="1" IsChecked="{Binding FlipX}"/>
+                                    </Grid>
+
+                                    <!-- 垂直翻转 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_FlipY}"/>
+                                        <ToggleButton Grid.Column="1" IsChecked="{Binding FlipY}"/>
+                                    </Grid>
+
+                                    <Separator Margin="0 5"/>
+
+                                    <!-- 播放速度 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_PlaySpeed}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Speed}"/>
+                                    </Grid>
+
+                                    <!-- 显示坐标轴 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_ShowAxis}"/>
+                                        <ToggleButton Grid.Column="1" IsChecked="{Binding ShowAxis}"/>
+                                    </Grid>
+
+                                    <!-- 背景颜色 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_BackgroundColor}" ToolTip="#AARRGGBB"/>
+                                        <DockPanel Grid.Column="1">
+                                            <Border DockPanel.Dock="Right">
+                                                <Popup x:Name="_colorPopup" Placement="Right">
+                                                    <hc:ColorPicker Confirmed="ColorPicker_Confirmed" Canceled="ColorPicker_Canceled"/>
+                                                </Popup>
+                                            </Border>
+                                            <Border DockPanel.Dock="Right" Background="White" CornerRadius="{DynamicResource DefaultCornerRadius}">
+                                                <Button Content="..."
+                                                        Foreground="{Binding BackgroundColor, Converter={StaticResource Bg2FgCvter}}"
+                                                        Click="ButtonPickColor_Click">
+                                                    <Button.Background>
+                                                        <SolidColorBrush Color="{Binding BackgroundColor}"/>
+                                                    </Button.Background>
+                                                </Button>
+                                            </Border>
+                                            <TextBox Text="{Binding BackgroundColor}" ToolTip="#AARRGGBB"/>
+                                        </DockPanel>
+                                    </Grid>
+
+                                    <!-- 背景图案 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_BackgroundImagePath}"/>
+                                        <DockPanel Grid.Column="1">
+                                            <Button DockPanel.Dock="Right" Content="..." Command="{Binding Cmd_SelectBackgroundImage}"/>
+                                            <TextBox Text="{Binding BackgroundImagePath}"/>
+                                        </DockPanel>
+                                    </Grid>
+
+                                    <!-- 背景图案模式 -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="{DynamicResource Str_BackgroundImageMode}"/>
+                                        <ComboBox Grid.Column="1" SelectedValue="{Binding BackgroundImageMode}" ItemsSource="{x:Static vm:SFMLRendererViewModel.StretchOptions}"/>
+                                    </Grid>
+                                </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                            
+                            <!-- 浏览页 -->
+                            <TabItem DataContext="{Binding ExplorerListViewModel}">
+                                <TabItem.Header>
+                                    <Border Style="{StaticResource MyTabItemHeaderContainerStyle}"
+                                        MouseLeftButtonDown="MainTabControlHeader_MouseLeftButtonDown">
+                                        <Viewbox Width="24" Height="24" ToolTip="{DynamicResource Str_Explorer}">
+                                            <Path Data="{StaticResource Geo_Image}" Style="{StaticResource MyTabItemHeaderPathStyle}"/>
+                                        </Viewbox>
+                                    </Border>
+                                </TabItem.Header>
+                                <Grid x:Name="_explorerGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+
+                                    <DockPanel>
+                                        <Grid DockPanel.Dock="Top">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <hc:TextBox hc:InfoElement.Placeholder="{DynamicResource Str_Filter}"
+                                                        Text="{Binding FilterString, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <Button Grid.Column="1" 
+                                                    hc:IconElement.Geometry="{StaticResource Geo_Folder}" 
+                                                    Command="{Binding Cmd_ChangeCurrentDirectory}"
+                                                    ToolTip="{DynamicResource Str_ChangeCurrentDirectoryTooltip}"/>
+                                            <Button Grid.Column="2" 
+                                                    hc:IconElement.Geometry="{StaticResource Geo_ArrowRotateRight}" 
+                                                    Command="{Binding Cmd_RefreshItems}"
+                                                    ToolTip="{DynamicResource Str_RefreshItemsTooltip}"/>
+                                        </Grid>
+
+                                        <StatusBar DockPanel.Dock="Bottom">
+                                            <StatusBarItem>
+                                                <TextBlock Foreground="{DynamicResource PrimaryTextBrush}">
+                                                    <TextBlock.Text>
+                                                        <MultiBinding Converter="{StaticResource StrFmtCvter}" ConverterParameter="Str_ListViewStatusBar">
+                                                            <Binding Path="Items.Count" ElementName="_spineFilesListBox"/>
+                                                            <Binding Path="SelectedItems.Count" ElementName="_spineFilesListBox"/>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text>
+                                                </TextBlock>
+                                            </StatusBarItem>
+                                        </StatusBar>
+
+                                        <ListBox x:Name="_spineFilesListBox"
+                                                 VirtualizingPanel.IsVirtualizing="True"
+                                                 ItemsSource="{Binding ShownItems}"
+                                                 DisplayMemberPath="FileName">
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="SelectionChanged">
+                                                    <i:InvokeCommandAction Command="{Binding Cmd_SelectionChanged}"
+                                                                           CommandParameter="{Binding SelectedItems, ElementName=_spineFilesListBox}"/>
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+
+                                            <ListBox.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="{DynamicResource Str_AddSelectedItems}"
+                                                              Command="{Binding Cmd_AddSelectedItems}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="{DynamicResource Str_GeneratePreviewForSelected}"
+                                                              Command="{Binding Cmd_GeneratePreviews}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                    <MenuItem Header="{DynamicResource Str_DeletePreviewsForSelected}"
+                                                              Command="{Binding Cmd_DeletePreviews}"
+                                                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                                                </ContextMenu>
+                                            </ListBox.ContextMenu>
+                                        </ListBox>
+                                    </DockPanel>
+
+                                    <GridSplitter Grid.Row="1" ResizeDirection="Rows"/>
+
+                                    <Grid Grid.Row="2" DataContext="{Binding SelectedItem}">
+                                        <Grid.Resources>
+                                            <Style TargetType="{x:Type Label}" BasedOn="{StaticResource MyLabelStyle}">
+                                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                            </Style>
+                                            <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource TextBoxBaseStyle}">
+                                                <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                            </Style>
+                                        </Grid.Resources>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- 文件目录 -->
+                                        <Label Grid.Row="0" Grid.Column="0" Content="{DynamicResource Str_FileDirectory}"/>
+                                        <TextBox Grid.Row="0" Grid.Column="1"
+                                                 Text="{Binding FileDirectory, Mode=OneWay}"
+                                                 IsReadOnly="True"
+                                                 ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+
+                                        <!-- 文件名 -->
+                                        <Label Grid.Row="1" Grid.Column="0" Content="{DynamicResource Str_FileName}"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1"
+                                                 Text="{Binding FileName, Mode=OneWay}"
+                                                 IsReadOnly="True"/>
+
+                                        <!-- 预览图 -->
+                                        <Border Grid.Row="2" Grid.ColumnSpan="2" Background="{DynamicResource DarkDefaultBrush}">
+                                            <Image Source="{Binding PreviewImage, Mode=OneWay}" Stretch="Uniform"/>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </TabItem>
+
+                        </TabControl>
+                    </Border>
+
+                    <GridSplitter Grid.Column="1" ResizeDirection="Columns"/>
+
+                    <Border Grid.Column="2">
+                        <Grid x:Name="_rightPanelGrid">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- 预览画面容器 -->
+                                <Border Grid.Row="0" x:Name="_renderPanelContainer" Background="{DynamicResource SecondaryRegionBrush}">
+                                    <SFMLRenderer:SFMLRenderPanel x:Name="_renderPanel"/>
+                                </Border>
+
+                                <!-- 预览画面按钮组容器 -->
+                                <Border Grid.Row="1" x:Name="_renderPanelButtonsContainer">
+
+                                    <!-- 画面按钮 -->
+                                    <Border x:Name="_renderPanelButtonsPanel"
+                                            DataContext="{Binding SFMLRendererViewModel}"
+                                            Grid.Row="1" 
+                                            Grid.IsSharedSizeScope="True"
+                                            Background="{DynamicResource RegionBrush}">
+                                        <WrapPanel HorizontalAlignment="Center">
+                                            <WrapPanel.Resources>
+                                                <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ButtonDefault}">
+                                                    <Setter Property="Margin" Value="5"/>
+                                                    <Setter Property="Width" Value="50"/>
+                                                </Style>
+                                            </WrapPanel.Resources>
+                                            <Button hc:IconElement.Geometry="{StaticResource Geo_Stop}" Command="{Binding Cmd_Stop}" ToolTip="{DynamicResource Str_StopTooltip}"/>
+                                            <Button hc:IconElement.Geometry="{StaticResource Geo_RotateLeft}" Command="{Binding Cmd_Restart}" ToolTip="{DynamicResource Str_RestartTooltip}"/>
+                                            <Button hc:IconElement.Geometry="{Binding Geo_PlayPause}" Command="{Binding Cmd_PlayPause}" ToolTip="{DynamicResource Str_PlayPauseTooltip}"/>
+                                            <Button hc:IconElement.Geometry="{StaticResource Geo_ForwardStep}" Command="{Binding Cmd_ForwardStep}" ToolTip="{DynamicResource Str_ForwardStepTooltip}"/>
+                                            <Button hc:IconElement.Geometry="{StaticResource Geo_ForwardFast}" Command="{Binding Cmd_ForwardFast}" ToolTip="{DynamicResource Str_ForwardFastTooltip}"/>
+                                            <Button x:Name="_fullScreenButton" 
+                                                    hc:IconElement.Geometry="{StaticResource Geo_ArrowsMaximize}" 
+                                                    Click="ButtonFullScreen_Click" 
+                                                    ToolTip="{DynamicResource Str_FullScreenTooltip}"/>
+                                        </WrapPanel>
+                                    </Border>
+                                </Border>
+                            </Grid>
+
+                            <GridSplitter Grid.Row="1" ResizeDirection="Rows"/>
+
+                            <!-- 日志框容器 -->
+                            <Border Grid.Row="2" Name="_loggerBoxContainer">
+                                <Border x:Name="_loggerBoxPanel" DataContext="{Binding SFMLRendererViewModel}">
+                                    <DockPanel>
+                                        <StatusBar DockPanel.Dock="Bottom">
+                                            <StatusBarItem>
+                                                <TextBlock Foreground="{DynamicResource PrimaryTextBrush}">
+                                                    <TextBlock.Text>
+                                                        <MultiBinding Converter="{StaticResource StrFmtCvter}" ConverterParameter="Str_RealTimeFps">
+                                                            <Binding Path="RealTimeFps"/>
+                                                            <Binding Path="WallpaperRealTimeFps"/>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text>
+                                                </TextBlock>
+                                            </StatusBarItem>
+                                        </StatusBar>
+                                        <RichTextBox x:Name="_loggerRichTextBox" Grid.Row="2" Style="{StaticResource MyLogRichTextBoxStyle}"/>
+                                    </DockPanel>
+                                </Border>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 全屏布局框架 -->
+        <Grid x:Name="_fullScreenLayout" Visibility="Collapsed">
+            <Border x:Name="_renderPanelContainerFull"/>
+
+            <Popup x:Name="_leftEdgePopup"
+                   AllowsTransparency="True"
+                   Placement="Absolute"
+                   Width="10"
+                   Height="{Binding ActualHeight, ElementName=_fullScreenLayout}"
+                   Opened="LeftPopup_Opened"
+                   MouseEnter="LeftEdgePopup_MouseEnter">
+                <Border Background="#01ffffff"/>
+            </Popup>
+            <Popup x:Name="_topEdgePopup"
+                   AllowsTransparency="True"
+                   Placement="Absolute"
+                   Width="{Binding ActualWidth, ElementName=_fullScreenLayout}" 
+                   Height="10"
+                   Opened="TopPopup_Opened"
+                   MouseEnter="TopEdgePopup_MouseEnter">
+                <Border Background="#01ffffff"/>
+            </Popup>
+            <Popup x:Name="_rightEdgePopup"
+                   AllowsTransparency="True"
+                   Placement="Absolute"
+                   Width="10"
+                   Height="{Binding ActualHeight, ElementName=_fullScreenLayout}"
+                   Opened="RightPopup_Opened"
+                   MouseEnter="RightEdgePopup_MouseEnter">
+                <Border Background="#01ffffff"/>
+            </Popup>
+            <Popup x:Name="_bottomEdgePopup"
+                   AllowsTransparency="True"
+                   Placement="Absolute"
+                   Width="{Binding ActualWidth, ElementName=_fullScreenLayout}" 
+                   Height="10"
+                   Opened="BottomPopup_Opened"
+                   MouseEnter="BottomEdgePopup_MouseEnter">
+                <Border Background="#01ffffff"/>
+            </Popup>
+
+            <Popup x:Name="_mainTabControlPopupContainer"
+                   Placement="Absolute"
+                   Width="500"
+                   Height="{Binding ActualHeight, ElementName=_fullScreenLayout}"
+                   Opened="LeftPopup_Opened"
+                   MouseLeave="PopupContainer_MouseLeave"/>
+            <Popup x:Name="_mainMenuPopupContainer"
+                   Placement="Absolute"
+                   Width="{Binding ActualWidth, ElementName=_fullScreenLayout}" 
+                   Height="50"
+                   Opened="TopPopup_Opened"
+                   MouseLeave="PopupContainer_MouseLeave"/>
+            <Popup x:Name="_renderPanelButtonsPopupContainer"
+                   AllowsTransparency="True"
+                   Placement="Absolute"
+                   Width="{Binding ActualWidth, ElementName=_fullScreenLayout}" 
+                   Height="50"
+                   Opened="BottomPopup_Opened"
+                   MouseLeave="PopupContainer_MouseLeave"/>
+            <Popup x:Name="_loggerBoxPopupContainer"
+                   AllowsTransparency="True"
+                   Placement="Absolute"
+                   Width="{Binding ActualWidth, ElementName=_fullScreenLayout}" 
+                   Height="300"
+                   Opened="BottomPopup_Opened"
+                   MouseLeave="PopupContainer_MouseLeave"/>
+        </Grid>
+    </Grid>
+
+</Window>
