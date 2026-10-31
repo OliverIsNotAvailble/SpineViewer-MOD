@@ -12,7 +12,7 @@
 - Proteções: desativa classificações enquanto exporta; Cancelar interrompe quando o motor permite; carrega apenas um modelo por vez, descarrega recursos antes de mover, impede arquivos de saída vazios, impede MP4 com transparência. Se não conseguir carregar, mantém botão NULL disponível.
 - Alterados: \`MainWindow.xaml\`, \`MainWindow.xaml.cs\`, \`FFmpegVideoExporterViewModel.cs\`, \`SpineViewer.csproj\`, \`ChangLog.MD\`. Novos: \`VLotePanel.xaml(.cs)\`, \`Services/VLoteQueue.cs\`, \`Services/VLoteExportOptions.cs\`, workflow de teste \`vlote-build.yml\`. \`README\` intacto.
 - Limitações da v0.1: movimentação por **pasta de primeiro nível** (não arquivos soltos diretamente na raiz); configurador de lote exclusivo na aba VLote, sem atalho adicional na aba Canvas nesta versão. O visual real e a compatibilidade dos arquivos variam conforme a versão Spine e requerem teste com arquivos reais.
-- Verificação: CI inicial falhou somente porque o restore não incluía o RID `win-x64` (NETSDK1047). Workflow corrigido com `dotnet restore -r win-x64`; nova compilação Windows .NET 8 em andamento.
+- Verificação: CI inicial falhou somente porque o restore não incluía o RID `win-x64` (NETSDK1047). Workflow corrigido com `dotnet restore -r win-x64`. Segunda execução compilou WPF e apontou imports explícitos ausentes em `VLoteQueue.cs` no projeto temporário XAML; adicionados `System.IO`, `System`, `System.Linq` e `System.Collections.Generic` e preparado novo build.
 
 
 
