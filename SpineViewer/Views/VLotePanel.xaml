@@ -79,7 +79,7 @@
             <TextBlock Text="PREVIEW / MODELO" FontWeight="Bold" FontSize="13"
                        Margin="0,4,0,9"/>
             <CheckBox x:Name="PmaToggle" Content="Premultiply Alpha (PMA)"
-                      IsThreeState="True"
+                      IsThreeState="False"
                       ToolTip="O mesmo controle da aba Base. Altera a renderização do modelo atual e será usado no export."
                       Margin="0,3,0,11"/>
             <TextBlock Text="Skins do modelo atual" FontWeight="SemiBold"
