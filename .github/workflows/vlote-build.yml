@@ -20,6 +20,6 @@ jobs:
       - name: Upload VLote Windows test build
         uses: actions/upload-artifact@v4
         with:
-          name: SpineViewer-VLote-0.1-Windows
+          name: SpineViewer-VLote-0.2-Windows
           path: publish/VLote/
           if-no-files-found: error

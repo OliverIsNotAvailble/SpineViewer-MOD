@@ -9,7 +9,7 @@
 - Adicionado painel **Skins** na aba VLote com checkboxes individuais e atalhos **Todas/Nenhuma**. Reutiliza `SpineObjectTabViewModel.Skins`/`SkinViewModel.Status`, atualizando o preview e a exportação, sem necessidade de alternar para a aba Base.
 - PMA/Skins ficam indisponíveis durante a exportação para evitar alterar a estrutura do modelo enquanto o FFmpeg usa seus recursos; a lista de skins é atualizada quando o próximo modelo é carregado.
 - Projeto marcado como `0.16.24-vlote.0.2`, interface `VLote 0.2`. Alterados: `VLoteQueue.cs`, `VLotePanel.xaml`, `VLotePanel.xaml.cs`, `SpineViewer.csproj` e este changelog. README e branch `main` preservados.
-- Verificação: build Windows .NET 8 pendente; conferir funcionamento de PMA, trocas de skins e geração de vídeo em `_EXT` com assets reais.
+- Verificação: **build e publicação Windows .NET 8 aprovados** no GitHub Actions (run 41242821754); confirmado que o código de VLote 0.2 compila sem erro. O workflow passou a nomear o artefato **SpineViewer-VLote-0.2-Windows**. Preview, PMA, skins e exportação para `_EXT` ainda precisam de teste funcional com os modelos reais.
 
 ### Branch VLote — 0.1 (2026-10-31)
 
