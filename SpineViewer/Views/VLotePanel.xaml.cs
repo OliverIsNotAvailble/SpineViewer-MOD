@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using Spine.Exporters;
 using SpineViewer.Models;
 using SpineViewer.Services;
@@ -34,10 +36,49 @@ public partial class VLotePanel : UserControl
         Format.SelectedItem = FFmpegVideoExporter.VideoFormat.Mp4;
     }
 
-    public void SetContext(MainWindowViewModel vm) => _vm = vm;
+    public void SetContext(MainWindowViewModel vm)
+    {
+        _vm = vm;
+
+        // Bind to the SAME ViewModel used by Base > Render and Skins.
+        // Changes made in either tab are instantly reflected in the
+        // live model and included when GetSpineObject() copies it for FFmpeg.
+        PmaToggle.SetBinding(ToggleButton.IsCheckedProperty,
+            new Binding(nameof(SpineObjectTabViewModel.UsePma))
+            {
+                Source = vm.SpineObjectTabViewModel,
+                Mode = BindingMode.TwoWay,
+                UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+            });
+        SkinsList.ItemsSource = vm.SpineObjectTabViewModel.Skins;
+        UpdateModelControls();
+    }
+
+    private void AllSkins_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy || _vm is null || _active is null) return;
+        foreach (var skin in _vm.SpineObjectTabViewModel.Skins)
+            skin.Status = true;
+    }
+
+    private void NoSkins_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy || _vm is null || _active is null) return;
+        foreach (var skin in _vm.SpineObjectTabViewModel.Skins)
+            skin.Status = false;
+    }
+
+    private void UpdateModelControls()
+    {
+        var enabled = !_busy && _active is not null;
+        PmaToggle.IsEnabled = enabled;
+        SkinsList.IsEnabled = enabled;
+        AllSkinsButton.IsEnabled = enabled;
+        NoSkinsButton.IsEnabled = enabled;
+    }
 
     public string ProgressText => _queue is null
-        ? "VLote 0.1 — selecione a pasta raiz"
+        ? "VLote 0.2 — selecione a pasta raiz"
         : $"VLote — {_queue.Progress}  |  " +
           (_queue.Current is null ? "Fila concluída" : _queue.Current.Name);
 
@@ -69,7 +110,7 @@ public partial class VLotePanel : UserControl
             {
                 var choice = MessageBox.Show(
                     "VLote vai descarregar os modelos já abertos para mostrar apenas o próximo arquivo. Continuar?",
-                    "VLote 0.1", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    "VLote 0.2", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (choice != MessageBoxResult.Yes) return;
             }
             UnloadModels(true);
@@ -111,6 +152,7 @@ public partial class VLotePanel : UserControl
         {
             _vm.SFMLRendererViewModel.StartRender();
             _active = null;
+            UpdateModelControls();
         }
     }
 
@@ -141,6 +183,11 @@ public partial class VLotePanel : UserControl
                 ? "Não foi possível abrir o modelo. Verifique o atlas e selecione NULL para descartá-lo."
                 : "Preview carregado. Ajuste canvas/posição e use EXPORTAR ou NULL.");
             ExportButton.IsEnabled = _active is not null;
+            // Explicitly select one model to populate the existing Skin and
+            // PMA properties, even if the WPF ListView selection event is
+            // delayed until the next UI layout pass.
+            _vm.SpineObjectTabViewModel.SelectedObjects = _active is null
+                ? [] : new[] { _active };
         }
         catch (Exception ex)
         {
@@ -148,6 +195,7 @@ public partial class VLotePanel : UserControl
             ExportButton.IsEnabled = false;
             Publish($"Falha ao carregar: {ex.Message}. Use NULL para avançar.");
         }
+        UpdateModelControls();
     }
 
     private VLoteExportOptions Options()
@@ -197,6 +245,7 @@ public partial class VLotePanel : UserControl
         NullButton.IsEnabled = !busy && _queue?.Current is not null;
         CancelButton.IsEnabled = busy;
         RootPath.IsEnabled = !busy;
+        UpdateModelControls();
     }
 
     private async void Export_Click(object sender, RoutedEventArgs e)
@@ -215,20 +264,28 @@ public partial class VLotePanel : UserControl
         var model = _active;
         var currentQueue = _queue;
         var exporter = _vm.SpineObjectListViewModel.FFmpegVideoExporterViewModel;
-        var output = currentQueue.ExportDirectoryFor(entry);
+        string? stage = null;
         _cancel = new CancellationTokenSource();
         SetBusy(true);
         try
         {
+            // Export to _EXT/.vlote-stage-... first. On success publish
+            // atomically to _EXT/<group>/<skel>, with no overwrite.
+            stage = currentQueue.CreateExportStage();
             var progress = new Progress<string>(text => Publish(text));
-            Publish("Exportando... A pasta ainda NÃO foi movida.");
-            await Task.Run(() => exporter.ExportVLote(model, output, options,
+            Publish("Exportando para _EXT... Os arquivos Spine NÃO foram movidos.");
+            var stagingPath = stage;
+            await Task.Run(() => exporter.ExportVLote(model, stagingPath, options,
                 message => ((IProgress<string>)progress).Report(message), _cancel.Token));
+            _cancel.Token.ThrowIfCancellationRequested();
+
+            var exportedTo = currentQueue.PublishExport(entry, stage);
+            stage = null;
 
             // Release open textures/atlas handles BEFORE moving their folder.
             UnloadModels(false);
             var moved = currentQueue.Complete(entry, VLoteDecision.OK);
-            Publish(moved);
+            Publish($"Exportado em {exportedTo} | {moved}");
             LoadNext();
         }
         catch (OperationCanceledException)
@@ -243,6 +300,10 @@ public partial class VLotePanel : UserControl
         }
         finally
         {
+            // Only our own temporary stage is discarded. Completed exports
+            // under _EXT are never removed, including when moving fails.
+            try { currentQueue.DiscardExportStage(stage); }
+            catch (Exception ex) { Publish($"Aviso: limpeza temporária falhou: {ex.Message}"); }
             _cancel?.Dispose();
             _cancel = null;
             SetBusy(false);

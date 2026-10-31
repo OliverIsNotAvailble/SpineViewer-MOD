@@ -1,5 +1,16 @@
 ## SpineViewer - Local Custom Build Changelog
 
+### Branch VLote — 0.2 (2026-10-31)
+
+- Exportação reorganizada em **`<pasta raiz>\_EXT\<subpasta original>\<modelo>\`**, separada das pastas `_OK` e `_Null`. As pastas classificadas continuam contendo seus arquivos Spine, atlas e texturas; os vídeos são mantidos na área de exportação. A varredura recursiva também ignora `_EXT`.
+- Cada exportação cria primeiro um diretório temporário exclusivo dentro de `_EXT`; somente após terminar de codificar e verificar os vídeos eles são publicados na pasta definitiva. Destinos existentes recebem sufixos `(1)`, `(2)`, etc., sem sobrescrever. Em falhas ou cancelamentos, os temporários são limpos, o original não é movido e os exports anteriores permanecem.
+- O agrupamento de vários `.skel` numa subpasta continua igual; se todos forem OK ou NULL, move a pasta integral, e resultados mistos repartem arquivos de modelo conservando as texturas compartilhadas. Removida a lógica anterior que assumia que o export estaria dentro da pasta fonte e poderia calcular caminho relativo fora dela.
+- Adicionado **Premultiply Alpha (PMA)** na aba VLote: vinculado diretamente à propriedade `SpineObjectTabViewModel.UsePma` do programa original (Base > Render), atualizando o mesmo modelo, preview e cópia usada pelo exportador.
+- Adicionado painel **Skins** na aba VLote com checkboxes individuais e atalhos **Todas/Nenhuma**. Reutiliza `SpineObjectTabViewModel.Skins`/`SkinViewModel.Status`, atualizando o preview e a exportação, sem necessidade de alternar para a aba Base.
+- PMA/Skins ficam indisponíveis durante a exportação para evitar alterar a estrutura do modelo enquanto o FFmpeg usa seus recursos; a lista de skins é atualizada quando o próximo modelo é carregado.
+- Projeto marcado como `0.16.24-vlote.0.2`, interface `VLote 0.2`. Alterados: `VLoteQueue.cs`, `VLotePanel.xaml`, `VLotePanel.xaml.cs`, `SpineViewer.csproj` e este changelog. README e branch `main` preservados.
+- Verificação: build Windows .NET 8 pendente; conferir funcionamento de PMA, trocas de skins e geração de vídeo em `_EXT` com assets reais.
+
 ### Branch VLote — 0.1 (2026-10-31)
 
 - Criada branch **VLote**, independente do \`main\`. Mantido o SpineViewer existente e o preview central, sem substituir o renderizador SFML nem as opções de exportação tradicionais.

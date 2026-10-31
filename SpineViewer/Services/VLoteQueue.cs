@@ -58,20 +58,67 @@ public sealed class VLoteQueue
                                  Path.GetRelativePath(Root, b.SkelPath)));
     }
 
+    // Exports are kept OUTSIDE the _OK/_Null source asset folders.
+    // Example: root/_EXT/Chibi_A/character.skel/idle.mp4
+    // The model's relative filename is preserved to distinguish two
+    // .skel files (or nested models) inside the same source group.
     public string ExportDirectoryFor(VLoteEntry entry)
     {
+        if (!_entries.Contains(entry))
+            throw new ArgumentException("Model does not belong to this queue.", nameof(entry));
+
         var relative = Path.GetRelativePath(entry.GroupPath, entry.SkelPath);
         var id = relative.Replace(Path.DirectorySeparatorChar, '_')
                          .Replace(Path.AltDirectorySeparatorChar, '_');
         foreach (var character in Path.GetInvalidFileNameChars())
             id = id.Replace(character, '_');
-        return Path.Combine(entry.GroupPath, "_VLote_Exports", id);
+        return Path.Combine(Root, "_EXT", Path.GetFileName(entry.GroupPath), id);
+    }
+
+    // Render to a unique staging folder first; do not expose half-encoded
+    // videos as complete output in _EXT if FFmpeg fails midway.
+    public string CreateExportStage()
+    {
+        var root = Path.Combine(Root, "_EXT");
+        Directory.CreateDirectory(root);
+        var stage = Path.Combine(root, ".vlote-stage-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(stage);
+        return stage;
+    }
+
+    public string PublishExport(VLoteEntry entry, string stage)
+    {
+        var source = Path.GetFullPath(stage);
+        var stageRoot = Path.Combine(Root, "_EXT");
+        if (!PathComparer.Equals(Path.GetDirectoryName(source), stageRoot) ||
+            !Path.GetFileName(source).StartsWith(".vlote-stage-", StringComparison.Ordinal) ||
+            !Directory.Exists(source))
+            throw new IOException("Invalid VLote staging directory.");
+
+        var output = ExportDirectoryFor(entry);
+        var parent = Path.GetDirectoryName(output)!;
+        Directory.CreateDirectory(parent);
+        var destination = UniqueTarget(parent, Path.GetFileName(output));
+        Directory.Move(source, destination);
+        return destination;
+    }
+
+    public void DiscardExportStage(string? stage)
+    {
+        if (string.IsNullOrWhiteSpace(stage)) return;
+        var path = Path.GetFullPath(stage);
+        if (PathComparer.Equals(Path.GetDirectoryName(path),
+                Path.Combine(Root, "_EXT")) &&
+            Path.GetFileName(path).StartsWith(".vlote-stage-", StringComparison.Ordinal) &&
+            Directory.Exists(path))
+            Directory.Delete(path, recursive: true);
     }
 
     private static bool IsExcludedFolder(string name) =>
         name.Equals("_OK", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("_Null", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("_VLote_Exports", StringComparison.OrdinalIgnoreCase);
+        name.Equals("_VLote_Exports", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("_EXT", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsReparsePoint(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
@@ -153,7 +200,7 @@ public sealed class VLoteQueue
         }
 
         // Mixed decisions: copy the WHOLE group to both sides, then remove
-        // the foreign skeleton/atlas and the foreign model's output folder.
+        // the foreign skeleton/atlas; exported videos remain in root/_EXT.
         // Texture pages/shared resources are deliberately retained in both
         // copies. Never delete the original until BOTH destinations exist.
         string okTarget = UniqueTarget(Path.Combine(Root, "_OK"), Path.GetFileName(groupSource));
@@ -181,10 +228,8 @@ public sealed class VLoteQueue
                     var foreignAtlas = Path.Combine(foreignCopy, Path.GetRelativePath(groupSource, atlas));
                     if (File.Exists(foreignAtlas)) File.Delete(foreignAtlas);
                 }
-                var relativeExport = Path.GetRelativePath(groupSource, ExportDirectoryFor(entry));
-                var foreignExports = Path.Combine(foreignCopy, relativeExport);
-                if (Directory.Exists(foreignExports))
-                    Directory.Delete(foreignExports, true);
+                // Exports now live under root/_EXT and are not inside
+                // either of the source group copies.
             }
             Directory.CreateDirectory(Path.GetDirectoryName(okTarget)!);
             Directory.CreateDirectory(Path.GetDirectoryName(nullTarget)!);

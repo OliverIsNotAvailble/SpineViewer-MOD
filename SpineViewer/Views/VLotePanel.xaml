@@ -4,7 +4,7 @@
              Background="#252932" Foreground="#ECF1FA">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12">
-            <TextBlock Text="VLote 0.1" FontWeight="Bold" FontSize="21" Margin="0,0,0,8"/>
+            <TextBlock Text="VLote 0.2" FontWeight="Bold" FontSize="21" Margin="0,0,0,8"/>
             <TextBlock Text="Pasta raiz (recursiva)" FontWeight="SemiBold"/>
             <TextBox x:Name="RootPath" MinHeight="30" Margin="0,5,0,6"
                      TextWrapping="Wrap" ToolTip="Pasta que contém subpastas com .skel/.json e .atlas"/>
@@ -75,8 +75,39 @@
             <CheckBox x:Name="Loop" Content="Loop" IsChecked="True" Margin="0,4"/>
             <CheckBox x:Name="Lossless" Content="WebP lossless" Margin="0,4"/>
             <CheckBox x:Name="DisableTrackLoop" Content="Desativar loop interno das tracks" Margin="0,4"/>
-            <TextBlock Text="Os vídeos ficam em _VLote_Exports dentro da pasta do modelo, e acompanham os arquivos movidos para _OK."
-                       TextWrapping="Wrap" Foreground="#BCCDDD" Margin="0,9,0,12"/>
+            <Separator Margin="0,10,0,6"/>
+            <TextBlock Text="PREVIEW / MODELO" FontWeight="Bold" FontSize="13"
+                       Margin="0,4,0,9"/>
+            <CheckBox x:Name="PmaToggle" Content="Premultiply Alpha (PMA)"
+                      IsThreeState="True"
+                      ToolTip="O mesmo controle da aba Base. Altera a renderização do modelo atual e será usado no export."
+                      Margin="0,3,0,11"/>
+            <TextBlock Text="Skins do modelo atual" FontWeight="SemiBold"
+                       Margin="0,0,0,5"/>
+            <WrapPanel Margin="0,0,0,7">
+                <Button x:Name="AllSkinsButton" Content="Todas"
+                        Padding="10,5" MinWidth="85" Click="AllSkins_Click"/>
+                <Button x:Name="NoSkinsButton" Content="Nenhuma"
+                        Padding="10,5" Margin="7,0,0,0" MinWidth="85"
+                        Click="NoSkins_Click"/>
+            </WrapPanel>
+            <Border Background="#303744" BorderBrush="#495469" BorderThickness="1"
+                    CornerRadius="4" Padding="5">
+                <ListBox x:Name="SkinsList" MaxHeight="185" MinHeight="60"
+                         Background="Transparent" BorderThickness="0"
+                         Foreground="#ECF1FA"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Name}"
+                                      IsChecked="{Binding Status, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Margin="2,3" ToolTip="Ativar ou desativar esta skin no preview e no export"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+            <TextBlock Text="As skins e PMA afetam o mesmo modelo do preview principal. Vídeos em raiz\_EXT; os assets vão para _OK ou _Null."
+                       TextWrapping="Wrap" Foreground="#BCCDDD" Margin="0,12,0,12"/>
 
             <Button x:Name="ExportButton" Content="EXPORTAR → OK"
                     FontSize="16" FontWeight="Bold" MinHeight="52" Margin="0,3,0,7"
