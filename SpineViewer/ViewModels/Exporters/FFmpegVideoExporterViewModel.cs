@@ -151,9 +151,16 @@ namespace SpineViewer.ViewModels.Exporters
                     exporter.Rotation = view.Rotation;
                 }
 
+                // When "all" is unchecked, export the animation actually
+                // selected in the VLote/Base track 0 ComboBox, not the first
+                // animation in the file (which might be a different motion).
+                var previewAnimation = model.GetAnimation(0);
+                var selectedAnimation = original.Data.Animations
+                    .FirstOrDefault(animation => animation.Name == previewAnimation)
+                    ?? original.Data.Animations.First();
                 var list = settings.AllAnimations
                     ? original.Data.Animations.ToArray()
-                    : original.Data.Animations.Take(1).ToArray();
+                    : new[] { selectedAnimation };
 
                 foreach (var animation in list)
                 {

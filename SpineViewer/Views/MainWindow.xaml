@@ -1002,7 +1002,7 @@
                             </TabItem>
 
                             <!-- VLote batch queue: the original central preview stays active. -->
-                            <TabItem x:Name="_vloteTab" Header="VLote" ToolTip="VLote 0.1 - processar Spine em lote">
+                            <TabItem x:Name="_vloteTab" Header="VLote" ToolTip="VLote 0.3 - preview, animações e classificação por pasta">
                                 <local:VLotePanel x:Name="_vlotePanel"/>
                             </TabItem>
 

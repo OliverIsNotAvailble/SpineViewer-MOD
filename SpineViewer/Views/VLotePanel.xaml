@@ -1,125 +1,372 @@
 <UserControl x:Class="SpineViewer.Views.VLotePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#252932" Foreground="#ECF1FA">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="12">
-            <TextBlock Text="VLote 0.2" FontWeight="Bold" FontSize="21" Margin="0,0,0,8"/>
-            <TextBlock Text="Pasta raiz (recursiva)" FontWeight="SemiBold"/>
-            <TextBox x:Name="RootPath" MinHeight="30" Margin="0,5,0,6"
-                     TextWrapping="Wrap" ToolTip="Pasta que contém subpastas com .skel/.json e .atlas"/>
-            <WrapPanel Margin="0,0,0,9">
-                <Button Content="Abrir pasta..." MinWidth="115" Padding="8,6"
-                        Click="Browse_Click"/>
-                <Button Content="Ler / Atualizar fila" MinWidth="135" Margin="6,0,0,0"
-                        Padding="8,6" Click="Scan_Click"/>
-            </WrapPanel>
-            <Border Background="#343B49" Padding="9" CornerRadius="4" Margin="0,2,0,12">
-                <StackPanel>
-                    <TextBlock x:Name="CurrentName" FontSize="14" FontWeight="SemiBold"
-                               Text="Nenhuma pasta selecionada" TextWrapping="Wrap"/>
-                    <TextBlock x:Name="CurrentPath" Margin="0,6,0,0" Foreground="#BDCCDD"
-                               FontSize="11" TextWrapping="Wrap"/>
-                    <TextBlock x:Name="Counter" Margin="0,9,0,0" Text="0/0"
-                               FontSize="17" FontWeight="Bold"/>
-                </StackPanel>
-            </Border>
+             xmlns:vm="clr-namespace:SpineViewer.ViewModels.MainWindow"
+             Background="#11151C" Foreground="#F3F6FC"
+             FontFamily="Segoe UI" FontWeight="SemiBold">
+    <UserControl.Resources>
+        <!-- Scope all FBX-inspired styling to VLote. Base / Canvas remain unchanged. -->
+        <SolidColorBrush x:Key="VLotePanelBrush" Color="#1D2633"/>
+        <SolidColorBrush x:Key="VLoteBorderBrush" Color="#35455A"/>
+        <Style x:Key="VLoteInput" TargetType="{x:Type TextBox}">
+            <Setter Property="Background" Value="#141B25"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#50637E"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="9,6"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="VLoteCombo" TargetType="{x:Type ComboBox}">
+            <Setter Property="Background" Value="#182232"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#50637E"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="5,3"/>
+        </Style>
+        <Style x:Key="VLoteButton" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="#273950"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#456383"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="VLoteHeader" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="#C9DDF8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,1,0,9"/>
+        </Style>
+        <Style x:Key="VLoteCheck" TargetType="{x:Type CheckBox}">
+            <Setter Property="Foreground" Value="#F1F5FA"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+        <Style x:Key="VLoteFieldLabel" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="#BED0E3"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </UserControl.Resources>
 
-            <TextBlock Text="CONFIGURAÇÃO DE EXPORTAÇÃO" FontWeight="Bold" FontSize="13"
-                       Margin="0,0,0,7"/>
-            <TextBlock Text="O preview central continua editável: ajuste posição, zoom e o fundo antes de exportar."
-                       TextWrapping="Wrap" Foreground="#C7D5E7" Margin="0,0,0,10"/>
-            <TextBlock Text="Formato"/>
-            <ComboBox x:Name="Format" MinHeight="29" Margin="0,3,0,9"/>
-            <Grid Margin="0,0,0,7">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                    <TextBlock Text="Largura"/>
-                    <TextBox x:Name="OutputWidth" Text="720" Margin="0,3,0,0"/>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="12,11,12,8">
+                <StackPanel Margin="1,0,0,13">
+                    <TextBlock Text="SPINE • VLote" FontSize="21" FontWeight="Bold"
+                               Foreground="White"/>
+                    <TextBlock Text="Um projeto de cada vez • preview e export sincronizados"
+                               Foreground="#9FB3CB" FontSize="11" TextWrapping="Wrap"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                    <TextBlock Text="Altura"/>
-                    <TextBox x:Name="OutputHeight" Text="720" Margin="0,3,0,0"/>
-                </StackPanel>
-            </Grid>
-            <Grid Margin="0,0,0,7">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                    <TextBlock Text="FPS"/>
-                    <TextBox x:Name="FramesPerSecond" Text="30" Margin="0,3,0,0"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                    <TextBlock Text="CRF (MP4)"/>
-                    <TextBox x:Name="CrfText" Text="23" Margin="0,3,0,0"/>
-                </StackPanel>
-            </Grid>
-            <Grid Margin="0,0,0,7">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                    <TextBlock Text="WebP Quality"/>
-                    <TextBox x:Name="QualityText" Text="95" Margin="0,3,0,0"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                    <TextBlock Text="Velocidade"/>
-                    <TextBox x:Name="SpeedText" Text="1" Margin="0,3,0,0"/>
-                </StackPanel>
-            </Grid>
 
-            <CheckBox x:Name="AllAnimations" Content="Exportar TODAS as animações"
-                      IsChecked="True" Margin="0,4"/>
-            <CheckBox x:Name="Transparent" Content="Fundo transparente (WebP/APNG/MOV)"
-                      IsChecked="False" Margin="0,4"/>
-            <CheckBox x:Name="AutoFit" Content="Resolução automática (enquadramento pela animação)"
-                      IsChecked="False" Margin="0,4"/>
-            <CheckBox x:Name="KeepLast" Content="Keep last frame" IsChecked="True" Margin="0,4"/>
-            <CheckBox x:Name="Loop" Content="Loop" IsChecked="True" Margin="0,4"/>
-            <CheckBox x:Name="Lossless" Content="WebP lossless" Margin="0,4"/>
-            <CheckBox x:Name="DisableTrackLoop" Content="Desativar loop interno das tracks" Margin="0,4"/>
-            <Separator Margin="0,10,0,6"/>
-            <TextBlock Text="PREVIEW / MODELO" FontWeight="Bold" FontSize="13"
-                       Margin="0,4,0,9"/>
-            <CheckBox x:Name="PmaToggle" Content="Premultiply Alpha (PMA)"
-                      IsThreeState="False"
-                      ToolTip="O mesmo controle da aba Base. Altera a renderização do modelo atual e será usado no export."
-                      Margin="0,3,0,11"/>
-            <TextBlock Text="Skins do modelo atual" FontWeight="SemiBold"
-                       Margin="0,0,0,5"/>
-            <WrapPanel Margin="0,0,0,7">
-                <Button x:Name="AllSkinsButton" Content="Todas"
-                        Padding="10,5" MinWidth="85" Click="AllSkins_Click"/>
-                <Button x:Name="NoSkinsButton" Content="Nenhuma"
-                        Padding="10,5" Margin="7,0,0,0" MinWidth="85"
-                        Click="NoSkins_Click"/>
-            </WrapPanel>
-            <Border Background="#303744" BorderBrush="#495469" BorderThickness="1"
-                    CornerRadius="4" Padding="5">
-                <ListBox x:Name="SkinsList" MaxHeight="185" MinHeight="60"
-                         Background="Transparent" BorderThickness="0"
-                         Foreground="#ECF1FA"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox Content="{Binding Name}"
-                                      IsChecked="{Binding Status, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      Margin="2,3" ToolTip="Ativar ou desativar esta skin no preview e no export"/>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Border>
-            <TextBlock Text="As skins e PMA afetam o mesmo modelo do preview principal. Vídeos em raiz\_EXT; os assets vão para _OK ou _Null."
-                       TextWrapping="Wrap" Foreground="#BCCDDD" Margin="0,12,0,12"/>
+                <Border Background="{StaticResource VLotePanelBrush}" CornerRadius="6"
+                        BorderBrush="{StaticResource VLoteBorderBrush}" BorderThickness="1"
+                        Padding="12" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="01   FILA DE MODELOS" Style="{StaticResource VLoteHeader}"/>
+                        <TextBlock Text="Pasta raiz (recursiva)" Style="{StaticResource VLoteFieldLabel}"/>
+                        <TextBox x:Name="RootPath" Style="{StaticResource VLoteInput}"
+                                 TextWrapping="Wrap" Margin="0,0,0,8"
+                                 ToolTip="Subpastas com .skel/.skel.bytes ou .json + .atlas"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Style="{StaticResource VLoteButton}"
+                                    Content="Abrir pasta..." Click="Browse_Click"/>
+                            <Button Grid.Column="2" Style="{StaticResource VLoteButton}"
+                                    Content="Atualizar fila" Click="Scan_Click"/>
+                        </Grid>
+                        <Border Background="#121B27" BorderBrush="#385372"
+                                BorderThickness="1" CornerRadius="5"
+                                Margin="0,12,0,0" Padding="10">
+                            <StackPanel>
+                                <TextBlock x:Name="Counter" Text="0/0" FontSize="18"
+                                           Foreground="#70C7FF" FontWeight="Bold"/>
+                                <TextBlock x:Name="CurrentName" Text="Nenhuma pasta selecionada"
+                                           FontWeight="Bold" FontSize="14" TextWrapping="Wrap"
+                                           Margin="0,5,0,0"/>
+                                <TextBlock x:Name="CurrentPath" Foreground="#9DAFC5"
+                                           FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
-            <Button x:Name="ExportButton" Content="EXPORTAR → OK"
-                    FontSize="16" FontWeight="Bold" MinHeight="52" Margin="0,3,0,7"
-                    Background="#266748" Foreground="White" Click="Export_Click"/>
-            <Button x:Name="NullButton" Content="NULL → _Null"
-                    FontSize="15" FontWeight="Bold" MinHeight="50"
-                    Background="#883C42" Foreground="White" Click="Null_Click"/>
-            <Button x:Name="CancelButton" Content="Cancelar exportação em andamento"
-                    Margin="0,9,0,0" MinHeight="32" IsEnabled="False"
-                    Click="Cancel_Click"/>
-            <TextBlock x:Name="Detail" Text="Escolha uma pasta raiz para começar."
-                       TextWrapping="Wrap" Foreground="#C1D3E6" Margin="0,13,0,20"/>
-        </StackPanel>
-    </ScrollViewer>
+                <Border Background="{StaticResource VLotePanelBrush}" CornerRadius="6"
+                        BorderBrush="{StaticResource VLoteBorderBrush}" BorderThickness="1"
+                        Padding="12" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="02   MODELO / ANIMAÇÃO" Style="{StaticResource VLoteHeader}"/>
+                        <TextBlock Text="Animação do preview (track 0)" Style="{StaticResource VLoteFieldLabel}"/>
+                        <ComboBox x:Name="AnimationCombo" Style="{StaticResource VLoteCombo}"
+                                  Margin="0,0,0,8" IsEnabled="False"
+                                  ToolTip="Mesmo seletor da aba Base; alterar aqui atualiza o preview e a track 0."/>
+                        <CheckBox x:Name="PmaToggle" Content="Premultiply Alpha (PMA)"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        <StackPanel x:Name="ModelSettingsGroup" DataContext="{Binding SpineObjectTabViewModel}"
+                                    Margin="0,5,0,8">
+                            <TextBlock Text="Escala e posição do modelo" Style="{StaticResource VLoteFieldLabel}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="7"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="7"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Escala" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding Scale, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="X" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding X, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Y" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding Y, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                        <TextBlock Text="Skins ativas" Style="{StaticResource VLoteFieldLabel}"
+                                   Margin="0,9,0,5"/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="AllSkinsButton" Grid.Column="0"
+                                    Style="{StaticResource VLoteButton}"
+                                    Content="Todas" Click="AllSkins_Click"/>
+                            <Button x:Name="NoSkinsButton" Grid.Column="2"
+                                    Style="{StaticResource VLoteButton}"
+                                    Content="Nenhuma" Click="NoSkins_Click"/>
+                        </Grid>
+                        <Border Background="#141B25" BorderBrush="#41546D"
+                                BorderThickness="1" CornerRadius="4" Padding="4">
+                            <ListBox x:Name="SkinsList" MinHeight="58" MaxHeight="165"
+                                     Background="Transparent" BorderThickness="0"
+                                     Foreground="White"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Name}"
+                                                  IsChecked="{Binding Status, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  Foreground="White" FontWeight="SemiBold"
+                                                  Margin="4,3"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource VLotePanelBrush}" CornerRadius="6"
+                        BorderBrush="{StaticResource VLoteBorderBrush}" BorderThickness="1"
+                        Padding="12" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="03   PREVIEW / CANVAS" Style="{StaticResource VLoteHeader}"/>
+                        <TextBlock Text="A resolução abaixo também controla a proporção do preview central."
+                                   Foreground="#ADC3DB" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Largura (px)" Style="{StaticResource VLoteFieldLabel}"/>
+                                <TextBox x:Name="OutputWidth" Text="720"
+                                         Style="{StaticResource VLoteInput}"
+                                         TextChanged="CanvasDimension_Changed"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Altura (px)" Style="{StaticResource VLoteFieldLabel}"/>
+                                <TextBox x:Name="OutputHeight" Text="720"
+                                         Style="{StaticResource VLoteInput}"
+                                         TextChanged="CanvasDimension_Changed"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="PreviewResolution" Text="Preview: 720 × 720"
+                                   Foreground="#78CEFF" FontSize="11"
+                                   Margin="0,0,0,11"/>
+                        <StackPanel x:Name="PreviewSettingsGroup" DataContext="{Binding SFMLRendererViewModel}">
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Zoom" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding Zoom, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Rotação" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding Rotation, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Centro X" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding CenterX, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Centro Y" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding CenterY, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </StackPanel>
+                            </Grid>
+                            <WrapPanel Margin="0,0,0,8">
+                                <CheckBox Content="Flip X" IsChecked="{Binding FlipX}"
+                                          Style="{StaticResource VLoteCheck}" Margin="0,3,18,3"/>
+                                <CheckBox Content="Flip Y" IsChecked="{Binding FlipY}"
+                                          Style="{StaticResource VLoteCheck}"/>
+                            </WrapPanel>
+                            <TextBlock Text="Imagem de fundo" Style="{StaticResource VLoteFieldLabel}"/>
+                            <DockPanel Margin="0,0,0,7">
+                                <Button DockPanel.Dock="Right" Margin="6,0,0,0"
+                                        Style="{StaticResource VLoteButton}"
+                                        Command="{Binding Cmd_SelectBackgroundImage}"
+                                        Content="..." ToolTip="Escolher imagem de fundo"/>
+                                <TextBox Style="{StaticResource VLoteInput}"
+                                         Text="{Binding BackgroundImagePath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                            </DockPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Cor de fundo" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <TextBox Style="{StaticResource VLoteInput}"
+                                             Text="{Binding BackgroundColor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                             ToolTip="Cor RGB, por exemplo #10151D"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Ajuste do BG" Style="{StaticResource VLoteFieldLabel}"/>
+                                    <ComboBox Style="{StaticResource VLoteCombo}"
+                                              SelectedValue="{Binding BackgroundImageMode, Mode=TwoWay}"
+                                              ItemsSource="{x:Static vm:SFMLRendererViewModel.StretchOptions}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource VLotePanelBrush}" CornerRadius="6"
+                        BorderBrush="{StaticResource VLoteBorderBrush}" BorderThickness="1"
+                        Padding="12" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="04   EXPORTAÇÃO" Style="{StaticResource VLoteHeader}"/>
+                        <StackPanel x:Name="ExportSettingsGroup">
+                        <TextBlock Text="Formato" Style="{StaticResource VLoteFieldLabel}"/>
+                        <ComboBox x:Name="Format" Style="{StaticResource VLoteCombo}"
+                                  Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="FPS" Style="{StaticResource VLoteFieldLabel}"/>
+                                <TextBox x:Name="FramesPerSecond" Text="30" Style="{StaticResource VLoteInput}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="CRF (MP4)" Style="{StaticResource VLoteFieldLabel}"/>
+                                <TextBox x:Name="CrfText" Text="23" Style="{StaticResource VLoteInput}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="WebP Quality" Style="{StaticResource VLoteFieldLabel}"/>
+                                <TextBox x:Name="QualityText" Text="95" Style="{StaticResource VLoteInput}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Velocidade" Style="{StaticResource VLoteFieldLabel}"/>
+                                <TextBox x:Name="SpeedText" Text="1" Style="{StaticResource VLoteInput}"/>
+                            </StackPanel>
+                        </Grid>
+                        <CheckBox x:Name="AllAnimations" Content="Exportar TODAS as animações"
+                                  IsChecked="True" Style="{StaticResource VLoteCheck}"/>
+                        <CheckBox x:Name="Transparent" Content="Fundo transparente (WebP/APNG/MOV)"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        <CheckBox x:Name="AutoFit" Content="Enquadramento automático por animação"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        <CheckBox x:Name="KeepLast" Content="Keep last frame" IsChecked="True"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        <CheckBox x:Name="Loop" Content="Loop" IsChecked="True"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        <CheckBox x:Name="Lossless" Content="WebP lossless"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        <CheckBox x:Name="DisableTrackLoop" Content="Desativar loop das tracks"
+                                  Style="{StaticResource VLoteCheck}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions stay visible even when the settings list is long. -->
+        <Border Grid.Row="1" Background="#192431" BorderBrush="#364A64"
+                BorderThickness="0,1,0,0" Padding="11">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="ExportButton" Grid.Column="0" Content="EXPORT → _Done"
+                            Style="{StaticResource VLoteButton}"
+                            Background="#236F53" BorderBrush="#419B78"
+                            MinHeight="48" FontSize="13" Click="Export_Click"/>
+                    <Button x:Name="NullButton" Grid.Column="2" Content="NULL → _Null"
+                            Style="{StaticResource VLoteButton}"
+                            Background="#833E49" BorderBrush="#AE5661"
+                            MinHeight="48" FontSize="13" Click="Null_Click"/>
+                </Grid>
+                <Button x:Name="CancelButton" Style="{StaticResource VLoteButton}"
+                        Content="Cancelar exportação em andamento"
+                        MinHeight="29" Margin="0,7,0,0" IsEnabled="False"
+                        Click="Cancel_Click"/>
+                <TextBlock x:Name="Detail" Text="Selecione uma pasta raiz para começar."
+                           FontSize="11" TextWrapping="Wrap" Foreground="#BBD0E6"
+                           Margin="1,8,1,0" MaxHeight="65"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 </UserControl>

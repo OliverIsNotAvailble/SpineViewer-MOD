@@ -26,6 +26,9 @@ public partial class VLotePanel : UserControl
     private SpineObjectModel? _active;
     private CancellationTokenSource? _cancel;
     private bool _busy;
+    private bool _batchCanvasActive;
+    private uint _baseCanvasWidth;
+    private uint _baseCanvasHeight;
 
     public event Action<string>? ProgressChanged;
 
@@ -51,6 +54,23 @@ public partial class VLotePanel : UserControl
                 UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
             });
         SkinsList.ItemsSource = vm.SpineObjectTabViewModel.Skins;
+
+        // Reuse the exact same track 0 view model as the Base > Animation
+        // ComboBox. Changes from either tab update the same SpineObjectModel.
+        var animationVm = vm.SpineObjectTabViewModel;
+        AnimationCombo.SetBinding(ItemsControl.ItemsSourceProperty,
+            new Binding("AnimationTracks[0].AnimationNames")
+            {
+                Source = animationVm,
+                Mode = BindingMode.OneWay
+            });
+        AnimationCombo.SetBinding(Selector.SelectedItemProperty,
+            new Binding("AnimationTracks[0].AnimationName")
+            {
+                Source = animationVm,
+                Mode = BindingMode.TwoWay,
+                UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+            });
         UpdateModelControls();
     }
 
@@ -75,10 +95,69 @@ public partial class VLotePanel : UserControl
         SkinsList.IsEnabled = enabled;
         AllSkinsButton.IsEnabled = enabled;
         NoSkinsButton.IsEnabled = enabled;
+        AnimationCombo.IsEnabled = enabled &&
+            _vm?.SpineObjectTabViewModel.AnimationTracks.Count > 0;
+        ModelSettingsGroup.IsEnabled = enabled;
+    }
+
+    /// <summary>
+    /// The Base canvas size is restored whenever VLote is left. This prevents
+    /// the output preset (720x720, etc.) from overwriting general preferences.
+    /// </summary>
+    public (uint Width, uint Height)? BaseCanvasResolution =>
+        _batchCanvasActive ? (_baseCanvasWidth, _baseCanvasHeight) : null;
+
+    public void ActivateCanvas()
+    {
+        if (_vm is null || _batchCanvasActive) return;
+        var renderer = _vm.SFMLRendererViewModel;
+        _baseCanvasWidth = renderer.ResolutionX;
+        _baseCanvasHeight = renderer.ResolutionY;
+        _batchCanvasActive = true;
+        ApplyCanvasSize();
+    }
+
+    public void DeactivateCanvas()
+    {
+        if (!_batchCanvasActive) return;
+        _batchCanvasActive = false;
+        if (_vm is not null && _baseCanvasWidth > 0 && _baseCanvasHeight > 0)
+            _vm.SFMLRendererViewModel.SetResolution(
+                _baseCanvasWidth, _baseCanvasHeight);
+    }
+
+    private void CanvasDimension_Changed(object sender, TextChangedEventArgs e)
+    {
+        // TextChanged may occur during InitializeComponent before the controls
+        // are fully initialized. Do not touch the general canvas in that case.
+        if (!_batchCanvasActive || _busy || OutputWidth is null || OutputHeight is null)
+            return;
+        ApplyCanvasSize();
+    }
+
+    private void ApplyCanvasSize()
+    {
+        if (_vm is null || !_batchCanvasActive) return;
+        if (uint.TryParse(OutputWidth.Text.Trim(), out var width) &&
+            uint.TryParse(OutputHeight.Text.Trim(), out var height) &&
+            width >= 64 && width <= 4096 && height >= 64 && height <= 4096)
+        {
+            var renderer = _vm.SFMLRendererViewModel;
+            // SetResolution updates both logical SFML view dimensions AND the
+            // native preview's aspect ratio, not merely exporter.Width/Height.
+            renderer.SetResolution(width, height);
+            PreviewResolution.Text = $"Preview: {width} × {height} px";
+            PreviewResolution.Foreground = System.Windows.Media.Brushes.LightSkyBlue;
+        }
+        else
+        {
+            PreviewResolution.Text = "Resolução inválida (64–4096 px).";
+            PreviewResolution.Foreground = System.Windows.Media.Brushes.Orange;
+        }
     }
 
     public string ProgressText => _queue is null
-        ? "VLote 0.2 — selecione a pasta raiz"
+        ? "VLote 0.3 — selecione a pasta raiz"
         : $"VLote — {_queue.Progress}  |  " +
           (_queue.Current is null ? "Fila concluída" : _queue.Current.Name);
 
@@ -110,7 +189,7 @@ public partial class VLotePanel : UserControl
             {
                 var choice = MessageBox.Show(
                     "VLote vai descarregar os modelos já abertos para mostrar apenas o próximo arquivo. Continuar?",
-                    "VLote 0.2", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    "VLote 0.3", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (choice != MessageBoxResult.Yes) return;
             }
             UnloadModels(true);
@@ -166,7 +245,7 @@ public partial class VLotePanel : UserControl
         ExportButton.IsEnabled = NullButton.IsEnabled = _queue.Current is not null;
         if (_queue.Current is null)
         {
-            Publish("Terminado. As pastas classificadas foram movidas para _OK e _Null.");
+            Publish("Terminado. Os assets foram classificados em _Done e _Null; exports ficam em _EXT.");
             return;
         }
 
@@ -179,9 +258,10 @@ public partial class VLotePanel : UserControl
                     string.Equals(m.SkelPath, _queue.Current.SkelPath,
                                   StringComparison.OrdinalIgnoreCase));
 
+            ApplyCanvasSize();
             Publish(_active is null
                 ? "Não foi possível abrir o modelo. Verifique o atlas e selecione NULL para descartá-lo."
-                : "Preview carregado. Ajuste canvas/posição e use EXPORTAR ou NULL.");
+                : "Preview carregado. Resolução, animação, zoom e skins podem ser ajustados aqui.");
             ExportButton.IsEnabled = _active is not null;
             // Explicitly select one model to populate the existing Skin and
             // PMA properties, even if the WPF ListView selection event is
@@ -245,6 +325,10 @@ public partial class VLotePanel : UserControl
         NullButton.IsEnabled = !busy && _queue?.Current is not null;
         CancelButton.IsEnabled = busy;
         RootPath.IsEnabled = !busy;
+        OutputWidth.IsEnabled = !busy;
+        OutputHeight.IsEnabled = !busy;
+        PreviewSettingsGroup.IsEnabled = !busy;
+        ExportSettingsGroup.IsEnabled = !busy;
         UpdateModelControls();
     }
 

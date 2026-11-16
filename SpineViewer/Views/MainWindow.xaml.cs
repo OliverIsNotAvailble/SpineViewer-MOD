@@ -45,6 +45,9 @@ public partial class MainWindow : Window
 
     private readonly SFMLRenderWindow _wallpaperRenderWindow;
     private readonly MainWindowViewModel _vm;
+    // VLote uses a wider controls column, but the Base layout is restored on exit.
+    private GridLength? _vloteSidebarBefore;
+    private Brush? _vlotePreviewBackgroundBefore;
 
     private readonly List<IDisposable> _userStateWatchers = [];
     private DispatcherTimer _saveUserStateTimer;
@@ -118,7 +121,26 @@ public partial class MainWindow : Window
             _vloteFooter.Visibility = batchVisible ? Visibility.Visible : Visibility.Collapsed;
             _loggerRichTextBox.Visibility = batchVisible ? Visibility.Collapsed : Visibility.Visible;
             if (batchVisible)
+            {
+                if (_vloteSidebarBefore is null)
+                {
+                    _vloteSidebarBefore = _rootGrid.ColumnDefinitions[0].Width;
+                    _vlotePreviewBackgroundBefore = _renderPanelContainer.Background;
+                    _rootGrid.ColumnDefinitions[0].Width = new GridLength(455);
+                    _renderPanelContainer.Background = new SolidColorBrush(
+                        Color.FromRgb(17, 21, 28));
+                }
+                _vlotePanel.ActivateCanvas();
                 _vloteProgressText.Text = _vlotePanel.ProgressText;
+            }
+            else if (_vloteSidebarBefore is not null)
+            {
+                _vlotePanel.DeactivateCanvas();
+                _rootGrid.ColumnDefinitions[0].Width = _vloteSidebarBefore.Value;
+                _vloteSidebarBefore = null;
+                _renderPanelContainer.Background = _vlotePreviewBackgroundBefore;
+                _vlotePreviewBackgroundBefore = null;
+            }
         };
 
         // XXX: hc 的 NotifyIcon 的 Text 似乎没法双向绑定
@@ -296,6 +318,12 @@ public partial class MainWindow : Window
     private void SaveUserState()
     {
         var rb = RestoreBounds;
+        // VLote resolution and sidebar width are temporary, per-tab presets.
+        // Never persist them over the user's general Canvas preferences.
+        var baseCanvas = _vlotePanel.BaseCanvasResolution;
+        var generalSidebarWidth = _vloteSidebarBefore.HasValue
+            ? _vloteSidebarBefore.Value.Value
+            : _rootGrid.ColumnDefinitions[0].Width.Value;
         var m = new UserStateModel()
         {
             WindowLeft = rb.Left,
@@ -305,7 +333,7 @@ public partial class MainWindow : Window
             WindowState = WindowState,
 
             RootGridCol0Folded = RootGridCol0Folded,
-            RootGridCol0Width = _rootGrid.ColumnDefinitions[0].Width.Value,
+            RootGridCol0Width = generalSidebarWidth,
             RootGridCol2Width = _rootGrid.ColumnDefinitions[2].Width.Value,
 
             ModelListRow0Height = _modelListGrid.RowDefinitions[0].Height.Value,
@@ -319,8 +347,8 @@ public partial class MainWindow : Window
 
             ExploringDirectory = _vm.ExplorerListViewModel.CurrentDirectory,
 
-            ResolutionX = _vm.SFMLRendererViewModel.ResolutionX,
-            ResolutionY = _vm.SFMLRendererViewModel.ResolutionY,
+            ResolutionX = baseCanvas?.Width ?? _vm.SFMLRendererViewModel.ResolutionX,
+            ResolutionY = baseCanvas?.Height ?? _vm.SFMLRendererViewModel.ResolutionY,
             Speed = _vm.SFMLRendererViewModel.Speed,
             ShowAxis = _vm.SFMLRendererViewModel.ShowAxis,
             BackgroundColor = _vm.SFMLRendererViewModel.BackgroundColor,

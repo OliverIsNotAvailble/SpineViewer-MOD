@@ -44,7 +44,7 @@ public sealed class VLoteQueue
             throw new DirectoryNotFoundException(Root);
         LoadProgress();
 
-        // Never include any _OK or _Null folder, even when nested.
+        // Exclude _Done/_Null as well as older _OK output folders, even when nested.
         foreach (var group in Directory.EnumerateDirectories(Root).OrderBy(p => p, PathComparer))
         {
             var name = Path.GetFileName(group);
@@ -58,7 +58,7 @@ public sealed class VLoteQueue
                                  Path.GetRelativePath(Root, b.SkelPath)));
     }
 
-    // Exports are kept OUTSIDE the _OK/_Null source asset folders.
+    // Exports are kept OUTSIDE the _Done/_Null source asset folders.
     // Example: root/_EXT/Chibi_A/character.skel/idle.mp4
     // The model's relative filename is preserved to distinguish two
     // .skel files (or nested models) inside the same source group.
@@ -116,6 +116,7 @@ public sealed class VLoteQueue
 
     private static bool IsExcludedFolder(string name) =>
         name.Equals("_OK", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("_Done", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("_Null", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("_VLote_Exports", StringComparison.OrdinalIgnoreCase) ||
         name.Equals("_EXT", StringComparison.OrdinalIgnoreCase);
@@ -192,7 +193,7 @@ public sealed class VLoteQueue
         var allNull = group.All(e => e.Decision == VLoteDecision.Null);
         if (allOk || allNull)
         {
-            var root = Path.Combine(Root, allOk ? "_OK" : "_Null");
+            var root = Path.Combine(Root, allOk ? "_Done" : "_Null");
             var dest = UniqueTarget(root, Path.GetFileName(groupSource));
             Directory.CreateDirectory(root);
             Directory.Move(groupSource, dest);
@@ -203,7 +204,7 @@ public sealed class VLoteQueue
         // the foreign skeleton/atlas; exported videos remain in root/_EXT.
         // Texture pages/shared resources are deliberately retained in both
         // copies. Never delete the original until BOTH destinations exist.
-        string okTarget = UniqueTarget(Path.Combine(Root, "_OK"), Path.GetFileName(groupSource));
+        string okTarget = UniqueTarget(Path.Combine(Root, "_Done"), Path.GetFileName(groupSource));
         string nullTarget = UniqueTarget(Path.Combine(Root, "_Null"), Path.GetFileName(groupSource));
         string okStage = okTarget + ".vlote-stage-" + Guid.NewGuid().ToString("N");
         string nullStage = nullTarget + ".vlote-stage-" + Guid.NewGuid().ToString("N");
