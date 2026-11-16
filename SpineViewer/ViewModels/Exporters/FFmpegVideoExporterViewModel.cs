@@ -135,9 +135,14 @@ namespace SpineViewer.ViewModels.Exporters
                 exporter.Quality = settings.Quality;
                 exporter.Lossless = settings.Lossless;
                 exporter.Loop = settings.Loop;
+                // Transparent outputs still use true alpha=0. Otherwise,
+                // use the exact background color chosen in the VLote canvas,
+                // rather than hardcoded black. This also works with no BG
+                // image and with background images that do not fill the frame.
+                var bgColor = settings.BackgroundColor;
                 exporter.BackgroundColor = settings.Transparent
                     ? new SFML.Graphics.Color(0, 0, 0, 0)
-                    : new SFML.Graphics.Color(0, 0, 0, 255);
+                    : new SFML.Graphics.Color(bgColor.R, bgColor.G, bgColor.B, 255);
                 exporter.BackgroundImagePath = settings.Transparent
                     ? null
                     : _vmMain.SFMLRendererViewModel.BackgroundImagePath;

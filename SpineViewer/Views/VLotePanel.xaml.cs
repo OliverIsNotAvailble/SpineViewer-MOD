@@ -310,6 +310,11 @@ public partial class VLotePanel : UserControl
             Format = (FFmpegVideoExporter.VideoFormat)Format.SelectedItem!,
             AllAnimations = AllAnimations.IsChecked == true,
             Transparent = Transparent.IsChecked == true,
+            // Snapshot the exact solid color shown in the preview. The
+            // exporter runs on a background thread; never re-read the UI
+            // after EXPORT was clicked.
+            BackgroundColor = _vm?.SFMLRendererViewModel.BackgroundColor
+                ?? System.Windows.Media.Color.FromRgb(105, 105, 105),
             AutoFit = AutoFit.IsChecked == true,
             KeepLast = KeepLast.IsChecked == true,
             Loop = Loop.IsChecked == true,

@@ -1,5 +1,12 @@
 ## SpineViewer - Local Custom Build Changelog
 
+### Branch VLote — 0.4 (2026-11-16)
+
+- **Cor de fundo da VLote passa a ser respeitada no EXPORT.** Corrigido bug em `FFmpegVideoExporterViewModel.ExportVLote` que forçava `SFML.Graphics.Color(0,0,0,255)` para qualquer exportação sem transparência. Agora o painel captura o `SFMLRendererViewModel.BackgroundColor` no clique de EXPORT (snapshot no `VLoteExportOptions.BackgroundColor`) e o FFmpeg usa os mesmos canais RGB no canvas exportado, com alpha 255. Ex.: `#FFC0C0C0` no preview gera RGB `192,192,192` na exportação MP4/WebP/APNG sem transparência. Não altera transparência verdadeira: se `Transparent` estiver ativo, continua usando fundo RGBA `0,0,0,0`, sem imagem de fundo. Se houver BG imagem e transparência desligada, a cor escolhida fica por trás dessa imagem.
+- **Corrigidos os três menus ComboBox da VLote** (animação, formato e ajuste do background): o estilo anterior definia fundo escuro/branco mas era sobrescrito pelo template visual global do HandyControl, resultando em caixas **brancas com letras brancas**. Agora os controles da VLote têm template e itens próprios: campo, popup, seleção e hover com fundo grafite/azul escuro e texto branco legível, clique em toda a caixa e seta visível. Estilo isolado na aba VLote; caixas da Base e outros controles não foram modificados.
+- O valor de fundo continua editável no campo `Cor de fundo` (formato `#AARRGGBB`) e é salvo normalmente pelo `userstate.json`. Não força o cinza em outros projetos nem muda o padrão da aplicação.
+- Alterações somente na `VLote`: `VLotePanel.xaml`, `VLotePanel.xaml.cs`, `Services/VLoteExportOptions.cs`, `ViewModels/Exporters/FFmpegVideoExporterViewModel.cs`, versão e changelog. `main`, README e motor geral do Spine permanecem intactos. Versão `0.16.24-vlote.0.4`.
+
 ### Branch VLote — 0.3 (2026-11-16)
 
 - **Preview sincronizado com a configuração da própria VLote.** Ao entrar na aba VLote, a resolução geral do canvas é guardada temporariamente e a viewport SFML recebe a Largura × Altura da aba (por padrão 720×720). Alterações válidas entre 64 e 4096 px atualizam imediatamente a proporção e o enquadramento do preview central; o exportador usa o mesmo `SFMLRenderer` (view/câmera) e a mesma resolução em `ExportVLote`. Ao sair da VLote, as dimensões originais da aba Base são restauradas. A preferência geral salva em `userstate.json` não é contaminada pelas dimensões temporárias do lote.

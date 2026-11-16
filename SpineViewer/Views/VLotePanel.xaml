@@ -19,13 +19,116 @@
             <Setter Property="MinHeight" Value="32"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
+        <!-- An explicit template is required: the app's normal HandyControl
+             ComboBox draws a light native dropdown despite dark brushes.
+             Keep dark selected text AND dark popup items within VLote only. -->
         <Style x:Key="VLoteCombo" TargetType="{x:Type ComboBox}">
             <Setter Property="Background" Value="#182232"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="#F5F8FF"/>
             <Setter Property="BorderBrush" Value="#50637E"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="MinHeight" Value="34"/>
-            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MaxDropDownHeight" Value="300"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="{x:Type ComboBoxItem}">
+                        <Setter Property="Foreground" Value="#F5F8FF"/>
+                        <Setter Property="Background" Value="#182232"/>
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                    <Border x:Name="ItemBorder"
+                                            Background="{TemplateBinding Background}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter
+                                            Content="{TemplateBinding Content}"
+                                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                            VerticalAlignment="Center"
+                                            TextElement.Foreground="#F5F8FF"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#365474"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#294765"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="ItemBorder" Property="Opacity" Value="0.5"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ComboBox}">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="ComboBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1" CornerRadius="4">
+                                <Grid>
+                                    <!-- The entire field opens the list. The
+                                         selected item remains noninteractive. -->
+                                    <ToggleButton x:Name="DropDownToggle"
+                                                  Focusable="False" ClickMode="Press"
+                                                  IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <ContentPresenter Margin="12,0,34,0"
+                                                      HorizontalAlignment="Left"
+                                                      VerticalAlignment="Center"
+                                                      IsHitTestVisible="False"
+                                                      RecognizesAccessKey="True"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      TextElement.Foreground="#F5F8FF"/>
+                                    <Path HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
+                                          IsHitTestVisible="False"
+                                          Margin="0,0,13,0" Stroke="#CFDEF1"
+                                          StrokeThickness="2"
+                                          Data="M 0 0 L 5 5 L 10 0"/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup" Placement="Bottom"
+                                   AllowsTransparency="True" Focusable="False"
+                                   StaysOpen="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}">
+                                <Border Background="#182232"
+                                        BorderBrush="#50637E" BorderThickness="1"
+                                        MinWidth="{Binding ActualWidth, ElementName=ComboBorder}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  CanContentScroll="True">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#78B8EF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ComboBorder" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="VLoteButton" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="#273950"/>

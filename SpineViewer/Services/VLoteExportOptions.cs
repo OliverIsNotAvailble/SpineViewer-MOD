@@ -9,6 +9,10 @@ public sealed class VLoteExportOptions
     public uint Fps { get; init; } = 30;
     public FFmpegVideoExporter.VideoFormat Format { get; init; } = FFmpegVideoExporter.VideoFormat.Mp4;
     public bool AllAnimations { get; init; } = true;
+    // Snapshot of the same solid background selected in VLote/Canvas.
+    // Read on the UI thread before Task.Run to avoid a stale/default color.
+    public System.Windows.Media.Color BackgroundColor { get; init; }
+        = System.Windows.Media.Color.FromRgb(105, 105, 105);
     public bool Transparent { get; init; }
     public bool AutoFit { get; init; }
     public bool KeepLast { get; init; } = true;
